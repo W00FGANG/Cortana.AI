@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id             String       @id @default(cuid())
+  name           String
+  role           String
+  description    String
+  avatar         String?
+  status         String       @default("Active") // Active, Paused
+  systemPrompt   String?
+  capabilities   String[]
+  schedule       String?
+  n8nWorkflowId  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  tasks          Task[]
+  runs           AgentRun[]
+  activities     Activity[]
+  approvals      Approval[]
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  agentId          String
+  agent            Agent        @relation(fields: [agentId], references: [id])
+  title            String
+  description      String?
+  status           String       @default("Pending") // Pending, Running, Completed, Failed, Needs Approval
+  priority         String       @default("Medium") // Low, Medium, High
+  scheduledFor     DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  result           String?
+  requiresApproval Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  runs             AgentRun[]
+  approvals        Approval[]
+}
+
+model AgentRun {
+  id          String    @id @default(cuid())
+  agentId     String
+  agent       Agent     @relation(fields: [agentId], references: [id])
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id])
+  status      String    // Running, Completed, Failed
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  input       String?
+  output      String?
+  error       String?
+}
+
+model Activity {
+  id          String   @id @default(cuid())
+  agentId     String
+  agent       Agent    @relation(fields: [agentId], references: [id])
+  action      String
+  description String?
+  status      String   // Success, Failed, Running
+  createdAt   DateTime @default(now())
+}
+
+model Approval {
+  id          String    @id @default(cuid())
+  agentId     String
+  agent       Agent     @relation(fields: [agentId], references: [id])
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id])
+  title       String
+  content     String
+  status      String    @default("Pending") // Pending, Approved, Rejected
+  createdAt   DateTime  @default(now())
+  reviewedAt  DateTime?
+}

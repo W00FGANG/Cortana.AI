@@ -1,13 +1,18 @@
 import { Filter, Play, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { formatTimeAgo } from "@/lib/agent-ui";
 
-export default function TasksPage() {
-  const tasks = [
-    { id: "t1", title: "Follow up with qualified prospects.", agent: "Kai", status: "Pending", priority: "High", scheduled: "Today, 2:00 PM" },
-    { id: "t2", title: "Find Hawaii businesses with outdated websites.", agent: "Atlas", status: "Running", priority: "Medium", scheduled: "Today, 10:00 AM" },
-    { id: "t3", title: "Generate this week's LinkedIn content ideas.", agent: "Maya", status: "Completed", priority: "Medium", scheduled: "Today, 9:00 AM" },
-    { id: "t4", title: "Review upcoming administrative deadlines.", agent: "Nora", status: "Completed", priority: "Low", scheduled: "Today, 8:00 AM" },
-    { id: "t5", title: "Send outreach email to John Doe", agent: "Kai", status: "Needs Approval", priority: "High", scheduled: "Today, 11:30 AM" },
-  ];
+export const dynamic = "force-dynamic";
+
+export default async function TasksPage() {
+  const tasks = await prisma.task.findMany({
+    include: {
+      agent: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -32,12 +37,14 @@ export default function TasksPage() {
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Tasks</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage and track all AI worker tasks.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Manage and track all live AI worker tasks.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 rounded-md bg-white border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
             <Filter className="h-4 w-4" />
-            Filters
+            Filters ({tasks.length})
           </button>
         </div>
       </header>
@@ -56,36 +63,53 @@ export default function TasksPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {tasks.map((task) => (
-                <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-900">{task.title}</td>
-                  <td className="px-6 py-4 text-slate-600">{task.agent}</td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(task.status)}`}>
-                      {getStatusIcon(task.status)}
-                      {task.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-xs font-medium ${
-                      task.priority === 'High' ? 'text-red-600' : task.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500'
-                    }`}>
-                      {task.priority}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-600">{task.scheduled}</td>
-                  <td className="px-6 py-4 text-right">
-                    {task.status === "Pending" || task.status === "Needs Approval" ? (
-                      <button className="inline-flex items-center gap-1.5 rounded bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
-                        <Play className="h-3 w-3 fill-current" />
-                        Run Now
-                      </button>
-                    ) : (
-                      <span className="text-slate-400 text-xs">No actions</span>
-                    )}
+              {tasks.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                    No tasks currently registered.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                tasks.map((task) => (
+                  <tr key={task.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-900">
+                      <div>
+                        <p>{task.title}</p>
+                        {task.description && (
+                          <p className="text-xs text-slate-500 mt-0.5">{task.description}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{task.agent.name}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(task.status)}`}>
+                        {getStatusIcon(task.status)}
+                        {task.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs font-medium ${
+                        task.priority === 'High' ? 'text-red-600' : task.priority === 'Medium' ? 'text-amber-600' : 'text-slate-500'
+                      }`}>
+                        {task.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600">
+                      {task.scheduledFor ? formatTimeAgo(task.scheduledFor) : "On demand"}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {task.status === "Pending" || task.status === "Needs Approval" ? (
+                        <button className="inline-flex items-center gap-1.5 rounded bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
+                          <Play className="h-3 w-3 fill-current" />
+                          Run
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-xs">Logged</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

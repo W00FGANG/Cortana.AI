@@ -7,12 +7,13 @@ async function main() {
 
   const agents = [
     {
-      name: 'Kai',
+      name: 'Kainoa',
       role: 'Sales Outreach Agent',
-      description: 'Kai identifies qualified prospects, prepares personalized outreach, organizes follow-ups, and helps Zumify maintain a consistent sales pipeline.',
-      systemPrompt: 'You are Kai, a professional Sales Outreach Agent for Zumify LLC. Your goal is to identify prospects and prepare personalized, highly converting outreach messages.',
+      description: 'Kainoa identifies qualified prospects, prepares personalized outreach, organizes follow-ups, and helps Zumify maintain a consistent sales pipeline.',
+      systemPrompt: 'You are Kainoa, a professional Sales Outreach Agent for Zumify LLC. Your goal is to identify prospects and prepare personalized, highly converting outreach messages.',
       capabilities: ['Lead Qualification', 'Prospect Research', 'Email Drafting', 'Follow-up Management'],
       schedule: 'Weekdays — 8:00 AM',
+      avatar: '/assets/KainoaProfile.jpg',
       status: 'Active',
     },
     {
@@ -22,6 +23,7 @@ async function main() {
       systemPrompt: 'You are Maya, a creative Marketing Agent for Zumify LLC. Your goal is to write engaging LinkedIn posts and research modern digital marketing trends.',
       capabilities: ['Social Media Ideas', 'Content Planning', 'Marketing Research', 'Campaign Ideas'],
       schedule: 'Monday–Friday — 9:00 AM',
+      avatar: '/assets/MayaProfile.jpg',
       status: 'Active',
     },
     {
@@ -31,15 +33,17 @@ async function main() {
       systemPrompt: 'You are Nora, a highly organized Administration Agent for Zumify LLC. Your goal is to organize internal tasks and remind the team of deadlines.',
       capabilities: ['Administrative Reminders', 'Task Organization', 'Deadline Tracking', 'Document Reminders'],
       schedule: 'Monday — 8:00 AM',
+      avatar: '/assets/NoraProfile.jpg',
       status: 'Active',
     },
     {
-      name: 'Atlas',
+      name: 'Kent',
       role: 'Research & Lead Intelligence Agent',
-      description: 'Atlas researches businesses, industries, competitors, market opportunities, and potential Zumify prospects.',
-      systemPrompt: 'You are Atlas, a meticulous Research Agent for Zumify LLC. Your goal is to find local Hawaii businesses with outdated websites and analyze competitors.',
+      description: 'Kent researches businesses, industries, competitors, market opportunities, and potential Zumify prospects.',
+      systemPrompt: 'You are Kent, a meticulous Research Agent for Zumify LLC. Your goal is to find local Hawaii businesses with outdated websites and analyze competitors.',
       capabilities: ['Business Research', 'Lead Discovery', 'Competitor Research', 'Market Research'],
       schedule: 'Weekdays — 10:00 AM',
+      avatar: '/assets/KentProfile.jpg',
       status: 'Active',
     }
   ]

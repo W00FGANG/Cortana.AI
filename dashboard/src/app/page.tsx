@@ -11,26 +11,49 @@ import {
   Calendar,
   Settings
 } from "lucide-react";
-import { workers } from "@/lib/mock-data";
-import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 
-export default function Dashboard() {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeWorker = workers[activeIndex];
+export const dynamic = "force-dynamic";
 
-  const handlePrev = () => {
-    setActiveIndex((prev) => (prev - 1 + workers.length) % workers.length);
-  };
+export default async function Dashboard() {
+  // 1. Fetch live metrics from Supabase
+  const [
+    activeAgentsCount,
+    totalTasksCount,
+    completedTasksCount,
+    pendingApprovalsCount,
+    agents,
+    recentActivities
+  ] = await Promise.all([
+    prisma.agent.count({ where: { status: "Active" } }),
+    prisma.task.count(),
+    prisma.task.count({ where: { status: "Completed" } }),
+    prisma.approval.count({ where: { status: "Pending" } }),
+    prisma.agent.findMany({
+      include: {
+        tasks: {
+          orderBy: { createdAt: "desc" },
+        },
+        runs: {
+          orderBy: { startedAt: "desc" },
+          take: 1,
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.activity.findMany({
+      include: { agent: true },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
 
-  const handleNext = () => {
-    setActiveIndex((prev) => (prev + 1) % workers.length);
-  };
-
-  // Mock logs for the active agent to show in their control board
-  const agentLogs = [
-    { time: activeWorker.lastRun, action: "Task Completed", details: activeWorker.currentTask, status: "Success" },
-    { time: "Yesterday, 3:00 PM", action: "Scheduled execution", details: "Routine check and synchronization", status: "Success" },
-    { time: "Yesterday, 10:00 AM", action: "Data processing", details: "Analyzed 150 items", status: "Success" }
+  const metrics = [
+    { name: "Active Workers", value: activeAgentsCount.toString(), icon: Users, color: "text-blue-600", bg: "bg-blue-100" },
+    { name: "Total Tasks", value: totalTasksCount.toString(), icon: Clock, color: "text-indigo-600", bg: "bg-indigo-100" },
+    { name: "Completed", value: completedTasksCount.toString(), icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
+    { name: "Needs Approval", value: pendingApprovalsCount.toString(), icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-100" },
   ];
 
   return (
@@ -128,83 +151,98 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Workers Section (2/3 width on lg) */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">AI Workforce</h2>
+            <Link href="/agents" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              View all ({agents.length})
+            </Link>
+          </div>
           
-          {/* Right Column: Telemetry & Control */}
-          <div className={`lg:col-span-7 p-6 space-y-8 flex flex-col justify-center transition-colors duration-300 ${activeWorker.theme.panelBg}`}>
-            
-            {/* Quick Actions */}
-            <div className="flex gap-4">
-              <button className={`flex-1 flex items-center justify-center gap-2 rounded-xl ${activeWorker.theme.bg} ${activeWorker.theme.hover} px-4 py-3.5 text-sm font-semibold text-white transition-colors shadow-md`}>
-                <Play className="h-4 w-4 fill-current" />
-                Trigger Execution
-              </button>
-              <Link 
-                href={`/agents/${activeWorker.id}`}
-                className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors shadow-sm ${activeWorker.theme.buttonSecondaryBg}`}
-              >
-                <Activity className="h-4 w-4" />
-                View Full Logs
-              </Link>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {agents.map((agent) => {
+              const style = getAgentStyle(agent.name);
+              const Icon = style.icon;
+              const currentTask = agent.tasks.find(t => t.status === "Running" || t.status === "Pending") || agent.tasks[0];
+              const completedCount = agent.tasks.filter(t => t.status === "Completed").length;
 
-            {/* Current State */}
-            <div>
-              <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 transition-colors duration-300 ${activeWorker.theme.textMuted}`}>
-                <Activity className="h-4 w-4" /> Current Activity
-              </h3>
-              <div className={`rounded-xl border p-5 shadow-sm transition-colors duration-300 ${activeWorker.theme.cardBg} ${activeWorker.theme.cardBorder}`}>
-                <p className={`mb-5 text-sm leading-relaxed transition-colors duration-300 ${activeWorker.theme.textBody}`}>
-                  {activeWorker.description}
-                </p>
-                <div className={`flex items-center gap-3 text-sm font-medium p-3 rounded-lg border transition-colors duration-300 ${activeWorker.theme.textHeading} ${activeWorker.theme.cardBg} ${activeWorker.theme.cardBorder}`}>
-                  <div className={`h-2.5 w-2.5 rounded-full animate-pulse ${activeWorker.theme.pulse}`} />
-                  <span className={`transition-colors duration-300 ${activeWorker.theme.textMuted}`}>Target:</span> 
-                  <span className={`font-semibold transition-colors duration-300 ${activeWorker.theme.textHeading}`}>{activeWorker.currentTask}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Schedule & Metrics */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className={`rounded-xl border p-5 shadow-sm transition-colors duration-300 ${activeWorker.theme.cardBg} ${activeWorker.theme.cardBorder}`}>
-                <div className={`flex items-center gap-2 mb-3 transition-colors duration-300 ${activeWorker.theme.textMuted}`}>
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Schedule</span>
-                </div>
-                <p className={`font-semibold text-sm transition-colors duration-300 ${activeWorker.theme.textHeading}`}>{activeWorker.schedule}</p>
-                <p className={`text-xs mt-1.5 font-medium transition-colors duration-300 ${activeWorker.theme.textMuted}`}>Next: {activeWorker.nextRun}</p>
-              </div>
-              <div className={`rounded-xl border p-5 shadow-sm transition-colors duration-300 ${activeWorker.theme.cardBg} ${activeWorker.theme.cardBorder}`}>
-                <div className={`flex items-center gap-2 mb-3 transition-colors duration-300 ${activeWorker.theme.textMuted}`}>
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-wider">Tasks</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <span className={`text-3xl font-bold tracking-tight transition-colors duration-300 ${activeWorker.theme.textHeading}`}>{activeWorker.completed}</span>
-                  <span className={`text-xs font-medium transition-colors duration-300 ${activeWorker.theme.textMuted}`}>completed today</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Outputs / Log */}
-            <div>
-              <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 transition-colors duration-300 ${activeWorker.theme.textMuted}`}>
-                <Clock className="h-4 w-4" /> Recent Outputs
-              </h3>
-              <div className="space-y-3">
-                {agentLogs.map((log, index) => (
-                  <div key={index} className={`flex items-start gap-3 rounded-xl border p-3 transition-colors duration-300 shadow-sm group ${activeWorker.theme.cardBg} ${activeWorker.theme.cardBorder}`}>
-                    <div className={`mt-0.5 rounded-full p-1.5 group-hover:scale-110 transition-all duration-300 ${activeWorker.theme.iconBg}`}>
-                      <CheckCircle2 className="h-4 w-4" />
+              return (
+                <div key={agent.id} className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:border-slate-300 transition-colors">
+                  <div className="p-5 flex-1">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg border ${style.color} ${style.borderColor}`}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                        {agent.status}
+                      </span>
                     </div>
-                    <div>
-                      <p className={`text-sm font-bold transition-colors duration-300 ${activeWorker.theme.textHeading}`}>{log.action}</p>
-                      <p className={`text-xs mt-1 transition-colors duration-300 ${activeWorker.theme.textBody}`}>{log.details}</p>
-                      <p className={`text-[11px] font-medium mt-2 flex items-center gap-1.5 uppercase tracking-wide transition-colors duration-300 ${activeWorker.theme.textMuted}`}>
-                        <Clock className="h-3 w-3" />
-                        {log.time}
-                      </p>
+                    <h3 className="font-semibold text-slate-900">{agent.name}</h3>
+                    <p className="text-sm text-slate-500 mb-4">{agent.role}</p>
+                    
+                    <div className="space-y-3 mt-4">
+                      <div>
+                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Current Task</p>
+                        <p className="text-sm text-slate-700 line-clamp-2">
+                          {currentTask ? currentTask.title : "No active task assigned"}
+                        </p>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Completed tasks</span>
+                        <span className="font-medium text-slate-900">{completedCount}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Schedule</span>
+                        <span className="font-medium text-slate-900">{agent.schedule || "On-demand"}</span>
+                      </div>
                     </div>
+                  </div>
+                  <div className="bg-slate-50 border-t border-slate-100 p-3">
+                    <Link 
+                      href={`/agents/${agent.id}`}
+                      className="flex w-full items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all"
+                    >
+                      Open Worker
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Activity Feed (1/3 width on lg) */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
+            <Link href="/operations" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              View log
+            </Link>
+          </div>
+          
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-100">
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="relative flex items-start gap-4">
+                  <div className="absolute left-0 mt-1.5 h-2 w-2 rounded-full bg-slate-300 ring-4 ring-white" />
+                  <div className="pl-6 flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-slate-900">{activity.agent.name}</span>
+                      <span className="text-xs text-slate-500">{formatTimeAgo(activity.createdAt)}</span>
+                    </div>
+                    <p className="text-sm text-slate-600">{activity.action}</p>
+                    {activity.description && (
+                      <p className="text-sm text-slate-500 mt-1 italic">"{activity.description}"</p>
+                    )}
                   </div>
                 ))}
               </div>

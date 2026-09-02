@@ -126,7 +126,7 @@ export default async function Dashboard() {
                       {agent.avatar ? (
                         <img src={agent.avatar} alt={agent.name} className="h-14 w-14 rounded-full object-cover border-2 border-white/20 shadow-lg" />
                       ) : (
-                        <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 shadow-lg ${style.bg} ${style.color}`}>
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 shadow-lg ${style.color}`}>
                           <Icon className="h-6 w-6" />
                         </div>
                       )}

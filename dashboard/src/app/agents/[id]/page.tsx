@@ -6,6 +6,7 @@ import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
+import { AgentChatBubble } from "@/components/AgentChatBubble";
 
 export const dynamic = "force-dynamic";
 
@@ -190,33 +191,21 @@ export default async function AgentProfilePage({ params }: PageProps) {
             <LiveRunMonitor isRunning={isRunning} agentId={agent.id} />
         </div>
         
-        {/* Welcome Chat Bubble */}
-        <div className={`flex items-start gap-4 p-5 rounded-2xl border shadow-sm relative ml-2 mt-4 ${chatTheme.bg}`}>
-          {/* Chat Bubble Tail */}
-          <div className={`absolute -left-2 top-6 w-4 h-4 border-l border-b transform rotate-45 ${chatTheme.tail}`}></div>
-          
-          <div className="shrink-0 z-10">
-            {agent.avatar ? (
-              <img src={agent.avatar} alt={agent.name} className={`h-10 w-10 rounded-full object-cover border-2 shadow-sm ${chatTheme.avatarBorder}`} />
-            ) : (
-              <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${chatTheme.fallbackIcon}`}>
-                <Icon className="h-5 w-5" />
-              </div>
-            )}
-          </div>
-          <div className="z-10">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-slate-900 dark:text-slate-50">{agent.name}</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">Status Update</span>
-            </div>
-            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-              Welcome to my dashboard! I'm currently monitoring operations and ready to assist. 
-              {currentTask 
-                ? ` I'm actively working on "${currentTask.title}".` 
-                : " I don't have any active tasks right now, but I'm standing by."}
-            </p>
-          </div>
-        </div>
+        <AgentChatBubble
+          agentId={agent.id}
+          agentName={agent.name}
+          agentRole={agent.role}
+          agentAvatar={agent.avatar}
+          agentIcon={<Icon className="h-5 w-5" />}
+          currentTaskTitle={currentTask?.title}
+          recentActivities={agent.activities?.slice(0, 3).map(a => a.action) || []}
+          theme={{
+            bg: chatTheme.bg,
+            tail: chatTheme.tail,
+            avatarBorder: chatTheme.avatarBorder,
+            fallbackIcon: chatTheme.fallbackIcon
+          }}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -274,10 +263,10 @@ export default async function AgentProfilePage({ params }: PageProps) {
 
             {/* Step Updates Stream from Activity Logs */}
             {agent.activities && agent.activities.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-slate-100">
+              <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 mb-3">
-                  <ActivityIcon className="h-4 w-4 text-slate-400" />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  <ActivityIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Step Execution Logs ({agent.activities.length})
                   </h3>
                 </div>
@@ -291,47 +280,47 @@ export default async function AgentProfilePage({ params }: PageProps) {
                       <div
                         key={act.id}
                         className={`flex items-start justify-between gap-3 p-3 rounded-lg border text-xs transition-all ${isActActive
-                            ? "bg-blue-50/80 border-blue-200 text-blue-950 shadow-xs"
+                            ? "bg-blue-50/80 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800/50 text-blue-950 dark:text-blue-100 shadow-xs"
                             : isActFailed
-                              ? "bg-rose-50/70 border-rose-200 text-rose-900"
-                              : "bg-emerald-50/30 border-emerald-100 text-slate-800 hover:border-emerald-200"
+                              ? "bg-rose-50/70 dark:bg-rose-900/30 border-rose-200 dark:border-rose-800/50 text-rose-900 dark:text-rose-100"
+                              : "bg-emerald-50/30 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30 text-slate-800 dark:text-slate-200 hover:border-emerald-200 dark:hover:border-emerald-700/50"
                           }`}
                       >
                         <div className="flex items-start gap-2.5 min-w-0">
                           {isActActive ? (
                             <span className="mt-1 flex h-2 w-2 relative shrink-0">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 dark:bg-blue-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600 dark:bg-blue-400"></span>
                             </span>
                           ) : isActFailed ? (
-                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                            <AlertCircle className="h-4 w-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
                           ) : (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                           )}
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-slate-900 truncate">
+                              <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                                 {isActSuccess && act.action.startsWith("Executing:")
                                   ? act.action.replace("Executing:", "Executed:")
                                   : act.action}
                               </p>
                               <span
                                 className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold border ${isActActive
-                                    ? "bg-blue-100 text-blue-800 border-blue-200"
+                                    ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800/50"
                                     : isActFailed
-                                      ? "bg-rose-100 text-rose-800 border-rose-200"
-                                      : "bg-emerald-100/80 text-emerald-800 border-emerald-200"
+                                      ? "bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800/50"
+                                      : "bg-emerald-100/80 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
                                   }`}
                               >
                                 {isActActive ? "In Progress" : isActFailed ? "Failed" : "Completed"}
                               </span>
                             </div>
                             {act.description && (
-                              <p className="text-slate-500 truncate mt-0.5">{act.description}</p>
+                              <p className="text-slate-500 dark:text-slate-400 truncate mt-0.5">{act.description}</p>
                             )}
                           </div>
                         </div>
-                        <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0 pt-0.5">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 pt-0.5">
                           {formatTimeAgo(act.createdAt)}
                         </span>
                       </div>
@@ -376,7 +365,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                  <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800/50">
                     <tr>
                       <th className="px-4 py-3 font-medium">Time</th>
                       <th className="px-4 py-3 font-medium">Task / Input</th>
@@ -384,22 +373,22 @@ export default async function AgentProfilePage({ params }: PageProps) {
                       <th className="px-4 py-3 font-medium">Output</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                     {agent.runs.map((run) => (
-                      <tr key={run.id} className="hover:bg-slate-50/50">
-                        <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{formatTimeAgo(run.startedAt)}</td>
-                        <td className="px-4 py-3 font-medium text-slate-900 max-w-xs truncate">
+                      <tr key={run.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">{formatTimeAgo(run.startedAt)}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100 max-w-xs truncate">
                           {run.task?.title || run.input || "Scheduled execution"}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${run.status === "Completed" ? "bg-emerald-100 text-emerald-800" :
-                              run.status === "Running" ? "bg-blue-100 text-blue-800 animate-pulse" :
-                                "bg-red-100 text-red-800"
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${run.status === "Completed" ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400" :
+                              run.status === "Running" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 animate-pulse" :
+                                "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300"
                             }`}>
                             {run.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600 text-xs font-mono max-w-sm truncate">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs font-mono max-w-sm truncate">
                           {run.error || run.output?.slice?.(0, 100) || "N/A"}
                         </td>
                       </tr>
@@ -414,14 +403,6 @@ export default async function AgentProfilePage({ params }: PageProps) {
 
         {/* Sidebar Column */}
         <div className="space-y-8">
-
-          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Schedule</h2>
-            <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
-              <Clock className="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0" />
-              <span>{agent.schedule || "On-demand execution"}</span>
-            </div>
-          </div>
 
           <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Capabilities</h2>

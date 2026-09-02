@@ -25,10 +25,10 @@ export default async function TasksPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Completed": return "bg-emerald-50 text-emerald-700 border-emerald-200";
-      case "Running": return "bg-blue-50 text-blue-700 border-blue-200";
-      case "Needs Approval": return "bg-amber-50 text-amber-700 border-amber-200";
-      default: return "bg-slate-50 text-slate-700 border-slate-200";
+      case "Completed": return "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50";
+      case "Running": return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50";
+      case "Needs Approval": return "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50";
+      default: return "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700";
     }
   };
 
@@ -42,17 +42,17 @@ export default async function TasksPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 rounded-md bg-white border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+          <button className="flex items-center gap-2 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-sm">
             <Filter className="h-4 w-4" />
             Filters ({tasks.length})
           </button>
         </div>
       </header>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+            <thead className="text-xs text-slate-500 dark:text-slate-400 uppercase bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="px-6 py-4 font-medium">Task</th>
                 <th className="px-6 py-4 font-medium">Agent</th>

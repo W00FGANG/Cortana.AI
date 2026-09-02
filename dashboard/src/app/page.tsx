@@ -57,7 +57,7 @@ export default async function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-            Agent Control Board
+            Corvana Dashboard
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Monitor and control your autonomous workforce.
@@ -83,19 +83,16 @@ export default async function Dashboard() {
         })}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Content Vertical Stack */}
+      <div className="flex flex-col gap-10">
         
-        {/* Workers Section (2/3 width on lg) */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Workers Section */}
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">AI Workforce</h2>
-            <Link href="/agents" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all ({agents.length})
-            </Link>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Corvana Workers</h2>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {agents.map((agent) => {
               const style = getAgentStyle(agent.name);
               const Icon = style.icon;
@@ -103,45 +100,64 @@ export default async function Dashboard() {
               const completedCount = agent.tasks.filter(t => t.status === "Completed").length;
 
               return (
-                <div key={agent.id} className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden hover:border-slate-300 transition-colors">
-                  <div className="p-5 flex-1">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg border ${style.color} ${style.borderColor}`}>
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        {agent.status}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-slate-900">{agent.name}</h3>
-                    <p className="text-sm text-slate-500 mb-4">{agent.role}</p>
-                    
-                    <div className="space-y-3 mt-4">
+                <div key={agent.id} className="group relative flex flex-col justify-end min-h-[460px] rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-700 border border-slate-200 dark:border-slate-800">
+                  
+                  {/* Full Background Image */}
+                  <img 
+                    src={`/assets/${agent.name}Body.jpg`} 
+                    alt={agent.name} 
+                    className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
+                  />
+                  
+                  {/* Gradient Overlays for readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/95 via-slate-900/50 to-transparent pointer-events-none"></div>
+                  
+                  {/* Status Badge */}
+                  <div className="absolute top-4 right-4 z-10">
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-500/90 text-white backdrop-blur-md border border-emerald-400/50 shadow-sm">
+                      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                      {agent.status}
+                    </span>
+                  </div>
+
+                  {/* Glassmorphism Info Panel */}
+                  <div className="relative z-10 p-5 mt-auto">
+                    <div className="flex items-center gap-4 mb-4">
+                      {agent.avatar ? (
+                        <img src={agent.avatar} alt={agent.name} className="h-14 w-14 rounded-full object-cover border-2 border-white/20 shadow-lg" />
+                      ) : (
+                        <div className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 shadow-lg ${style.bg} ${style.color}`}>
+                          <Icon className="h-6 w-6" />
+                        </div>
+                      )}
                       <div>
-                        <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Current Task</p>
-                        <p className="text-sm text-slate-700 line-clamp-2">
+                        <h3 className="text-xl font-bold text-white drop-shadow-sm">{agent.name}</h3>
+                        <p className="text-sm font-medium text-slate-300 drop-shadow-sm line-clamp-1">{agent.role}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <div className="bg-black/30 backdrop-blur-sm rounded-xl p-3 border border-white/10">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Current Task</p>
+                        <p className="text-sm text-slate-100 line-clamp-2">
                           {currentTask ? currentTask.title : "No active task assigned"}
                         </p>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Completed tasks</span>
-                        <span className="font-medium text-slate-900">{completedCount}</span>
+                      
+                      <div className="flex items-center justify-between mt-4 mb-4 px-1">
+                        <span className="text-slate-300 text-xs flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400"/> {completedCount} Completed
+                        </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-500">Schedule</span>
-                        <span className="font-medium text-slate-900">{agent.schedule || "On-demand"}</span>
-                      </div>
+
+                      <Link 
+                        href={`/agents/${agent.id}`}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 px-4 py-2.5 text-sm font-medium text-white transition-all group-hover:gap-3"
+                      >
+                        Open Worker
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </div>
-                  </div>
-                  <div className="bg-slate-50 border-t border-slate-100 p-3">
-                    <Link 
-                      href={`/agents/${agent.id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-50 hover:text-slate-900 transition-all"
-                    >
-                      Open Worker
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
                   </div>
                 </div>
               );
@@ -149,38 +165,36 @@ export default async function Dashboard() {
           </div>
         </div>
 
-        {/* Activity Feed (1/3 width on lg) */}
+        {/* Activity Feed */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-900">Recent Activity</h2>
-            <Link href="/operations" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Recent Activity</h2>
+            <Link href="/operations" className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:hover:text-blue-500">
               View log
             </Link>
           </div>
           
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-100">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+            <div className="space-y-6 relative before:absolute before:inset-0 before:ml-2 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
               {recentActivities.map((activity) => (
                 <div key={activity.id} className="relative flex items-start gap-4">
-                  <div className="absolute left-0 mt-1.5 h-2 w-2 rounded-full bg-slate-300 ring-4 ring-white" />
+                  <div className="absolute left-0 mt-1.5 h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600 ring-4 ring-white dark:ring-slate-900" />
                   <div className="pl-6 flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-slate-900">{activity.agent.name}</span>
-                      <span className="text-xs text-slate-500">{formatTimeAgo(activity.createdAt)}</span>
+                      <span className="text-sm font-medium text-slate-900 dark:text-slate-50">{activity.agent.name}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">{formatTimeAgo(activity.createdAt)}</span>
                     </div>
-                    <p className="text-sm text-slate-600">{activity.action}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-300">{activity.action}</p>
                     {activity.description && (
-                      <p className="text-sm text-slate-500 mt-1 italic">"{activity.description}"</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 italic">"{activity.description}"</p>
                     )}
                   </div>
                 </div>
               ))}
               </div>
             </div>
-            
           </div>
-        </div>
-      
+      </div>
     </div>
   );
 }

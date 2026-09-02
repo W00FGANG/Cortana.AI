@@ -16,11 +16,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "AI Workers", href: "/agents", icon: Users },
+  { name: "Approvals", href: "/approvals", icon: ShieldCheck },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Operations", href: "/operations", icon: Activity },
-  { name: "Schedule", href: "/schedule", icon: Calendar },
-  { name: "Approvals", href: "/approvals", icon: ShieldCheck },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

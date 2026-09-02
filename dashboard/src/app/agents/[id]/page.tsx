@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Clock, Activity as ActivityIcon, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Activity as ActivityIcon, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
@@ -45,6 +45,15 @@ export default async function AgentProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const allAgents = await prisma.agent.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" }
+  });
+
+  const currentIndex = allAgents.findIndex(a => a.id === agent.id);
+  const prevAgent = currentIndex > 0 ? allAgents[currentIndex - 1] : allAgents[allAgents.length - 1];
+  const nextAgent = currentIndex < allAgents.length - 1 ? allAgents[currentIndex + 1] : allAgents[0];
+
   const isArticleGenerator =
     agent.name.toLowerCase().includes("harper") ||
     agent.role.toLowerCase().includes("article") ||
@@ -56,6 +65,57 @@ export default async function AgentProfilePage({ params }: PageProps) {
   const currentTask = agent.tasks.find((t) => t.status === "Running" || t.status === "Pending") || agent.tasks[0];
   const completedTasks = agent.tasks.filter((t) => t.status === "Completed");
 
+  let chatTheme = {
+    bg: "bg-gradient-to-r from-slate-50 to-white dark:from-slate-800/60 dark:to-slate-900 border-slate-200 dark:border-slate-700/80",
+    tail: "bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80",
+    avatarBorder: "border-slate-200 dark:border-slate-600",
+    fallbackIcon: "border-slate-200 bg-slate-100 text-slate-600",
+    cardBg: "bg-gradient-to-br from-slate-50 to-white dark:from-slate-800/40 dark:to-slate-900 border-slate-200 dark:border-slate-700/50"
+  };
+
+  const nameLower = agent.name.toLowerCase();
+  if (nameLower.includes("kainoa")) {
+    chatTheme = {
+      bg: "bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-800/40 dark:to-slate-900 border-emerald-100 dark:border-emerald-700/50",
+      tail: "bg-emerald-50 dark:bg-emerald-800/40 border-emerald-100 dark:border-emerald-700/50",
+      avatarBorder: "border-emerald-200 dark:border-emerald-600",
+      fallbackIcon: "border-emerald-200 bg-emerald-100 text-emerald-600",
+      cardBg: "bg-gradient-to-br from-emerald-50/50 to-white dark:from-emerald-800/30 dark:to-slate-900 border-emerald-100 dark:border-emerald-700/40"
+    };
+  } else if (nameLower.includes("kent")) {
+    chatTheme = {
+      bg: "bg-gradient-to-r from-blue-50 to-white dark:from-blue-800/40 dark:to-slate-900 border-blue-100 dark:border-blue-700/50",
+      tail: "bg-blue-50 dark:bg-blue-800/40 border-blue-100 dark:border-blue-700/50",
+      avatarBorder: "border-blue-200 dark:border-blue-600",
+      fallbackIcon: "border-blue-200 bg-blue-100 text-blue-600",
+      cardBg: "bg-gradient-to-br from-blue-50/50 to-white dark:from-blue-800/30 dark:to-slate-900 border-blue-100 dark:border-blue-700/40"
+    };
+  } else if (nameLower.includes("maya")) {
+    chatTheme = {
+      bg: "bg-gradient-to-r from-yellow-50 to-white dark:from-yellow-800/40 dark:to-slate-900 border-yellow-100 dark:border-yellow-700/50",
+      tail: "bg-yellow-50 dark:bg-yellow-800/40 border-yellow-100 dark:border-yellow-700/50",
+      avatarBorder: "border-yellow-200 dark:border-yellow-600",
+      fallbackIcon: "border-yellow-200 bg-yellow-100 text-yellow-600",
+      cardBg: "bg-gradient-to-br from-yellow-50/50 to-white dark:from-yellow-800/30 dark:to-slate-900 border-yellow-100 dark:border-yellow-700/40"
+    };
+  } else if (nameLower.includes("nora")) {
+    chatTheme = {
+      bg: "bg-gradient-to-r from-purple-50 to-white dark:from-purple-800/40 dark:to-slate-900 border-purple-100 dark:border-purple-700/50",
+      tail: "bg-purple-50 dark:bg-purple-800/40 border-purple-100 dark:border-purple-700/50",
+      avatarBorder: "border-purple-200 dark:border-purple-600",
+      fallbackIcon: "border-purple-200 bg-purple-100 text-purple-600",
+      cardBg: "bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-800/30 dark:to-slate-900 border-purple-100 dark:border-purple-700/40"
+    };
+  } else if (nameLower.includes("harper") || isArticleGenerator) {
+    chatTheme = {
+      bg: "bg-gradient-to-r from-rose-50 to-white dark:from-rose-800/40 dark:to-slate-900 border-rose-100 dark:border-rose-700/50",
+      tail: "bg-rose-50 dark:bg-rose-800/40 border-rose-100 dark:border-rose-700/50",
+      avatarBorder: "border-rose-200 dark:border-rose-600",
+      fallbackIcon: "border-rose-200 bg-rose-100 text-rose-600",
+      cardBg: "bg-gradient-to-br from-rose-50/50 to-white dark:from-rose-800/30 dark:to-slate-900 border-rose-100 dark:border-rose-700/40"
+    };
+  }
+
   // Find latest completed article output
   const completedTaskWithResult = agent.tasks.find((t) => t.status === "Completed" && t.result) || agent.tasks.find((t) => t.result);
   const completedRunWithOutput = agent.runs.find((r) => r.status === "Completed" && r.output) || agent.runs.find((r) => r.output);
@@ -64,32 +124,98 @@ export default async function AgentProfilePage({ params }: PageProps) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Navigation */}
-      <div>
-        <Link href="/agents" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50 mb-6 transition-colors">
+      <div className="mb-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-50 transition-colors">
           <ArrowLeft className="h-4 w-4" />
-          Back to Agents
+          Back to Dashboard
         </Link>
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className={`flex h-16 w-16 items-center justify-center rounded-xl border ${style.color} ${style.borderColor} shrink-0`}>
-              <Icon className="h-8 w-8" />
+      </div>
+
+      {allAgents.length > 1 && (
+        <div className="flex items-center justify-between mb-10 border-b border-slate-200 dark:border-slate-800 pb-6">
+          <Link 
+            href={`/agents/${prevAgent.id}`} 
+            className="group flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+          >
+            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 group-hover:-translate-x-1 transition-transform">
+              <ChevronLeft className="h-5 w-5 text-slate-600 dark:text-slate-300" />
             </div>
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-900">{agent.name}</h1>
-              <p className="text-lg text-slate-600">{agent.role}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium border ${isRunning
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  }`}>
-                  <span className={`h-2 w-2 rounded-full ${isRunning ? "bg-blue-500 animate-ping" : "bg-emerald-500"}`} />
-                  {isRunning ? "Executing Workflow..." : agent.status}
-                </span>
+            <div className="text-left hidden sm:block">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mb-0.5">Previous</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{prevAgent.name}</p>
+            </div>
+          </Link>
+
+          <Link 
+            href={`/agents/${nextAgent.id}`} 
+            className="group flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+          >
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500 mb-0.5">Next Worker</p>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{nextAgent.name}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 group-hover:translate-x-1 transition-transform">
+              <ChevronRight className="h-5 w-5 text-slate-600 dark:text-slate-300" />
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* Agent Header & Welcome Chat Bubble */}
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className={`flex h-16 w-16 items-center justify-center rounded-xl border ${style.color} ${style.borderColor} shrink-0 overflow-hidden shadow-sm`}>
+                {agent.avatar ? (
+                  <img src={agent.avatar} alt={agent.name} className="h-full w-full object-cover" />
+                ) : (
+                  <Icon className="h-8 w-8" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{agent.name}</h1>
+                <p className="text-lg text-slate-600 dark:text-slate-400">{agent.role}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-sm font-medium border ${isRunning
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}>
+                    <span className={`h-2 w-2 rounded-full ${isRunning ? "bg-blue-500 animate-ping" : "bg-emerald-500"}`} />
+                    {isRunning ? "Executing Workflow..." : agent.status}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <LiveRunMonitor isRunning={isRunning} agentId={agent.id} />
+            <LiveRunMonitor isRunning={isRunning} agentId={agent.id} />
+        </div>
+        
+        {/* Welcome Chat Bubble */}
+        <div className={`flex items-start gap-4 p-5 rounded-2xl border shadow-sm relative ml-2 mt-4 ${chatTheme.bg}`}>
+          {/* Chat Bubble Tail */}
+          <div className={`absolute -left-2 top-6 w-4 h-4 border-l border-b transform rotate-45 ${chatTheme.tail}`}></div>
+          
+          <div className="shrink-0 z-10">
+            {agent.avatar ? (
+              <img src={agent.avatar} alt={agent.name} className={`h-10 w-10 rounded-full object-cover border-2 shadow-sm ${chatTheme.avatarBorder}`} />
+            ) : (
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full border-2 ${chatTheme.fallbackIcon}`}>
+                <Icon className="h-5 w-5" />
+              </div>
+            )}
+          </div>
+          <div className="z-10">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">{agent.name}</h3>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Status Update</span>
+            </div>
+            <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+              Welcome to my dashboard! I'm currently monitoring operations and ready to assist. 
+              {currentTask 
+                ? ` I'm actively working on "${currentTask.title}".` 
+                : " I don't have any active tasks right now, but I'm standing by."}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -104,9 +230,9 @@ export default async function AgentProfilePage({ params }: PageProps) {
           )}
 
           {/* Current Active Task & Live Step Updates */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Current Task & Step Execution</h2>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Current Task & Step Execution</h2>
               {isRunning && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -224,16 +350,29 @@ export default async function AgentProfilePage({ params }: PageProps) {
             />
           )}
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Overview</h2>
-            <p className="text-slate-600 leading-relaxed">{agent.description}</p>
+          <div className={`rounded-xl border p-6 shadow-sm flex flex-col sm:flex-row gap-6 items-start ${chatTheme.cardBg}`}>
+            {agent.avatar && (
+              <img src={agent.avatar} alt={agent.name} className="w-32 sm:w-48 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-sm shrink-0" />
+            )}
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">About {agent.name}</h2>
+              <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">{agent.description}</p>
+              {agent.systemPrompt && (
+                <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-lg relative">
+                  <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1 block">Directive</span>
+                  <p className="text-sm text-blue-900/80 italic">
+                    "{agent.systemPrompt}"
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Recent Runs Table */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Runs</h2>
+          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-4">Recent Runs</h2>
             {agent.runs.length === 0 ? (
-              <p className="text-sm text-slate-500 italic">No execution logs found.</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 italic">No execution logs found.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -276,20 +415,20 @@ export default async function AgentProfilePage({ params }: PageProps) {
         {/* Sidebar Column */}
         <div className="space-y-8">
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4 uppercase tracking-wider">Schedule</h2>
-            <div className="flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-              <Clock className="h-5 w-5 text-slate-400 shrink-0" />
+          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Schedule</h2>
+            <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
+              <Clock className="h-5 w-5 text-slate-400 dark:text-slate-500 shrink-0" />
               <span>{agent.schedule || "On-demand execution"}</span>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Capabilities</h2>
             <ul className="space-y-3">
               {agent.capabilities && agent.capabilities.length > 0 ? (
                 agent.capabilities.map((cap, i) => (
-                  <li key={i} className="flex items-center gap-3 text-slate-700">
+                  <li key={i} className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
                     <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                     <span className="text-sm">{cap}</span>
                   </li>
@@ -300,11 +439,11 @@ export default async function AgentProfilePage({ params }: PageProps) {
             </ul>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900 mb-4 uppercase tracking-wider">Total Activity</h2>
+          <div className={`rounded-xl border p-6 shadow-sm ${chatTheme.cardBg}`}>
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-4 uppercase tracking-wider">Total Activity</h2>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-slate-900">{completedTasks.length}</span>
-              <span className="text-sm text-slate-500">completed tasks</span>
+              <span className="text-3xl font-bold text-slate-900 dark:text-slate-50">{completedTasks.length}</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">completed tasks</span>
             </div>
           </div>
 

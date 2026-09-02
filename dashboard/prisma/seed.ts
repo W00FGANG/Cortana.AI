@@ -52,7 +52,7 @@ async function main() {
     },
   });
 
-  const atlas = await prisma.agent.create({
+  const kent = await prisma.agent.create({
     data: {
       name: 'Kent',
       role: 'Research & Lead Intelligence Agent',
@@ -60,6 +60,7 @@ async function main() {
       systemPrompt: 'You are Kent, a meticulous Research Agent for Zumify LLC. Your goal is to find local Hawaii businesses with outdated websites and analyze competitors.',
       capabilities: ['Business Research', 'Lead Discovery', 'Competitor Research', 'Market Research'],
       schedule: 'Weekdays — 10:00 AM',
+      avatar: '/assets/KentProfile.jpg',
       status: 'Active',
     },
   });
@@ -76,12 +77,13 @@ async function main() {
         'Article Generation'
       ],
       schedule: 'On-demand',
+      avatar: '/assets/HarperProfile.jpg',
       status: 'Active',
       n8nWorkflowId: '1DElnhi9xf3iwYcp',
     },
   });
 
-  console.log('Created 5 Agents (Kai, Maya, Nora, Atlas, Harper)');
+  console.log('Created 5 Agents (Kai, Maya, Nora, Kent, Harper)');
 
   // 2. Create Tasks
   const taskKai1 = await prisma.task.create({
@@ -145,9 +147,9 @@ async function main() {
     },
   });
 
-  const taskAtlas1 = await prisma.task.create({
+  const taskKent1 = await prisma.task.create({
     data: {
-      agentId: atlas.id,
+      agentId: kent.id,
       title: 'Find 10 Hawaii businesses that may need a website redesign.',
       description: 'Analyze local Hawaii service businesses with non-mobile friendly web assets.',
       status: 'Completed',
@@ -158,9 +160,9 @@ async function main() {
     },
   });
 
-  const taskAtlas2 = await prisma.task.create({
+  const taskKent2 = await prisma.task.create({
     data: {
-      agentId: atlas.id,
+      agentId: kent.id,
       title: 'Analyze competitor pricing and packaging across Honolulu agencies',
       description: 'Gather public agency rates and service tiers.',
       status: 'Pending',
@@ -183,8 +185,8 @@ async function main() {
         output: 'Drafting emails for 3/5 prospects...',
       },
       {
-        agentId: atlas.id,
-        taskId: taskAtlas1.id,
+        agentId: kent.id,
+        taskId: taskKent1.id,
         status: 'Completed',
         startedAt: new Date(Date.now() - 45 * 60 * 1000),
         completedAt: new Date(Date.now() - 40 * 60 * 1000),
@@ -233,7 +235,7 @@ async function main() {
         createdAt: new Date(Date.now() - 15 * 60 * 1000),
       },
       {
-        agentId: atlas.id,
+        agentId: kent.id,
         action: 'Discovered 10 potential Hawaii business prospects',
         description: 'Identified opportunities with outdated digital presence',
         status: 'Success',

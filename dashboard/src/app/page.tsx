@@ -1,16 +1,11 @@
-"use client";
-
-import { useState } from "react";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Play, 
   CheckCircle2, 
   Clock, 
-  Activity, 
-  Calendar,
-  Settings
+  Users,
+  AlertCircle,
+  ArrowRight
 } from "lucide-react";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 
@@ -70,88 +65,22 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* Carousel Container */}
-      <div className={`relative rounded-2xl border border-transparent shadow-xl overflow-hidden transition-colors duration-300 ${activeWorker.theme.containerBg}`}>
-        
-        {/* Navigation Bar */}
-        <div className={`flex items-center justify-between border-b p-4 transition-colors duration-300 ${activeWorker.theme.navBg}`}>
-          <button 
-            onClick={handlePrev}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-inherit shadow-sm border border-transparent"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-          
-          <div className="flex items-center gap-3">
-            <span className={`font-semibold text-lg transition-colors duration-300 ${activeWorker.theme.navText}`}>{activeWorker.name}</span>
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              {activeWorker.status}
-            </span>
-          </div>
-          
-          <button 
-            onClick={handleNext}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-700/50 transition-colors text-inherit shadow-sm border border-transparent"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </button>
-        </div>
-
-        {/* Control Board Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-0">
-          
-          {/* Left Column: Visuals */}
-          <div className="lg:col-span-5 relative bg-slate-100 dark:bg-slate-950 min-h-[450px] border-r border-slate-100 dark:border-slate-800 flex flex-col justify-between">
-            {/* Body Image Background */}
-            {activeWorker.bodyImage && (
-              <div className="absolute inset-0">
-                <img 
-                  src={activeWorker.bodyImage} 
-                  alt={`${activeWorker.name} body`} 
-                  className="w-full h-full object-cover object-top opacity-90"
-                />
-                {/* Gradient overlay for text readability at the bottom */}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/20 to-transparent opacity-90" />
+      {/* Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((metric) => {
+          const Icon = metric.icon;
+          return (
+            <div key={metric.name} className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${metric.bg} ${metric.color}`}>
+                <Icon className="h-6 w-6" />
               </div>
-            )}
-            
-            <div className="relative z-10 p-6 flex justify-between items-start">
-              {/* Profile Badge */}
-              <div className="flex flex-col items-center">
-                <div className={`flex h-20 w-20 overflow-hidden items-center justify-center rounded-xl border-2 shadow-lg ${activeWorker.color} ${activeWorker.borderColor} bg-white dark:bg-slate-800`}>
-                  {activeWorker.avatar ? (
-                    <img src={activeWorker.avatar} alt={activeWorker.name} className="h-full w-full object-cover" />
-                  ) : (
-                    <activeWorker.icon className="h-10 w-10" />
-                  )}
-                </div>
-              </div>
-              
-              <Link 
-                href={`/agents/${activeWorker.id}`}
-                className="flex items-center gap-2 rounded-md bg-white/10 hover:bg-white/20 backdrop-blur-md px-3 py-1.5 text-sm font-medium text-white transition-colors border border-white/20 shadow-sm"
-              >
-                <Settings className="h-4 w-4" />
-                Settings
-              </Link>
-            </div>
-            
-            <div className="relative z-10 p-6">
-              <h2 className="text-4xl font-bold text-white mb-2 tracking-tight drop-shadow-md">{activeWorker.name}</h2>
-              <p className="text-slate-200 font-medium mb-5 text-lg drop-shadow-sm">{activeWorker.role}</p>
-              
-              {/* Capabilities Tags */}
-              <div className="flex flex-wrap gap-2">
-                {activeWorker.capabilities.map((cap, i) => (
-                  <span key={i} className="px-2.5 py-1 rounded-md text-xs font-medium bg-black/40 text-white backdrop-blur-sm border border-white/10 shadow-sm">
-                    {cap}
-                  </span>
-                ))}
+              <div>
+                <p className="text-sm font-medium text-slate-500">{metric.name}</p>
+                <p className="text-2xl font-bold text-slate-900">{metric.value}</p>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Main Content Grid */}
@@ -244,29 +173,14 @@ export default async function Dashboard() {
                       <p className="text-sm text-slate-500 mt-1 italic">"{activity.description}"</p>
                     )}
                   </div>
-                ))}
+                </div>
+              ))}
               </div>
             </div>
             
           </div>
         </div>
-      </div>
       
-      {/* Carousel Dots */}
-      <div className="flex justify-center gap-2 mt-6">
-        {workers.map((worker, index) => (
-          <button
-            key={worker.id}
-            onClick={() => setActiveIndex(index)}
-            className={`h-2.5 rounded-full transition-all ${
-              index === activeIndex 
-                ? `w-10 ${worker.theme.dot}` 
-                : "w-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600"
-            }`}
-            aria-label={`Go to ${worker.name}`}
-          />
-        ))}
-      </div>
     </div>
   );
 }

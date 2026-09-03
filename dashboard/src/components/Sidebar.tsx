@@ -77,7 +77,9 @@ export function Sidebar() {
         
         <div className="flex flex-col items-center justify-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-800/60">
           <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">Powered by</span>
-          <img src="/assets/ZumifyLOGO.png" alt="Zumify Logo" className="h-16 w-auto opacity-70 hover:opacity-100 transition-opacity drop-shadow-sm" />
+          <a href="https://www.zumify.co/" target="_blank" rel="noopener noreferrer">
+            <img src="/assets/ZumifyLOGO.png" alt="Zumify Logo" className="h-16 w-auto opacity-70 hover:opacity-100 transition-opacity drop-shadow-sm" />
+          </a>
         </div>
       </div>
     </div>

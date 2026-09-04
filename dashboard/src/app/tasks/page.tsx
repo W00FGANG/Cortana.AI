@@ -1,10 +1,13 @@
-import { Filter, Play, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { Filter, Play, CheckCircle2, Clock, AlertCircle, AlertTriangle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatTimeAgo } from "@/lib/agent-ui";
+import { updateStalledExecutions } from "@/lib/stalled-executions";
 
 export const dynamic = "force-dynamic";
 
 export default async function TasksPage() {
+  await updateStalledExecutions();
+
   const tasks = await prisma.task.findMany({
     include: {
       agent: true,
@@ -19,6 +22,7 @@ export default async function TasksPage() {
       case "Completed": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
       case "Running": return <Clock className="h-4 w-4 text-blue-500" />;
       case "Needs Approval": return <AlertCircle className="h-4 w-4 text-amber-500" />;
+      case "Stalled": return <AlertTriangle className="h-4 w-4 text-orange-500" />;
       default: return <Clock className="h-4 w-4 text-slate-400" />;
     }
   };
@@ -28,6 +32,7 @@ export default async function TasksPage() {
       case "Completed": return "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50";
       case "Running": return "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50";
       case "Needs Approval": return "bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800/50";
+      case "Stalled": return "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800/50";
       default: return "bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700";
     }
   };

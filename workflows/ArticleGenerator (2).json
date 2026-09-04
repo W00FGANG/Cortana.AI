@@ -1,0 +1,2120 @@
+{
+  "name": "ArticleGenerator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-article",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "97db9d57-9d2e-4bb0-8160-1e9977dc1c54",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        48,
+        432
+      ],
+      "webhookId": "e42b1f3f-a3d7-4821-8d5d-47e5d5aa870c"
+    },
+    {
+      "parameters": {
+        "content": "## Input \n\nUser input and initial parameters, system prompts used in LLM calls",
+        "height": 432,
+        "width": 576
+      },
+      "id": "71455475-801d-4c9f-b9c3-e235d7ada1d2",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        256
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Initial Research for Articles and Citations\n\nGenerate additional set of keywords basing on user input, search for authoritative sources on Internet ",
+        "height": 432,
+        "width": 1936,
+        "color": 5
+      },
+      "id": "b64f3fd9-52f7-4c1c-87e8-04a78fef63dc",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        592,
+        256
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Model Params \n\n- **`simple_model`** Google Gemini model name for simple text tasks.\ne.g. `gpt-4.1-mini` | `gpt-4o`\n\n- **`advanced_model`** Google Gemini model name for advanced text writing tasks.\ne.g. `gpt-4.1` | `o3` | `o3-pro`\n\n- **`system_prompt_...`** System prompts for various tasks in the workflow\n\n- **`working_language`** Language to search, collect and analyse materials.\ne.g. `English`\n\n- **`output_language`** Language to generate output, set in user form or can be hard-coded. e.g. `Español`\n\n\n",
+        "height": 496,
+        "width": 576,
+        "color": 7
+      },
+      "id": "217d7e23-4cca-4c9c-bcd4-1c609e637a4e",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        704
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('LLM Params').item.json.system_prompt_generate_kw }] },\n  contents: [{ role: 'user', parts: [{ text: \"## Working language:\\n\" + ($('Language').item.json.main_language || 'English') + \"\\n\\n## Keywords for processing\\n\" + ($('Language').item.json.keywords || $('Webhook').item.json.body?.Keywords || $('Webhook').item.json.body?.keywords || '') }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "e2bdc2e3-c457-4f6a-b6f4-5f991e1104cb",
+      "name": "Generate Keywords",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        672,
+        432
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "21ad1d1a-5b5a-4686-9208-a5822b339e72",
+      "name": "Collect Keywords",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        896,
+        432
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Javascript code \n\nCode block **Collect ...** used here to collect Google Gemini model output from various formats, that different Google Gemini models produce, so when you change model name in **LLM Params** node, workflow does not break",
+        "height": 496,
+        "width": 528,
+        "color": 7
+      },
+      "id": "f88bb65c-6919-4754-8a0a-ed024f40eaa6",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        592,
+        704
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f4da46c9-0dd6-4e1e-abb7-74beb7156d54",
+              "name": "simple_model",
+              "type": "string",
+              "value": "gemini-2.5-flash"
+            },
+            {
+              "id": "84617555-0db4-4ea1-a5c7-a58549775d68",
+              "name": "advanced_model",
+              "type": "string",
+              "value": "gemini-2.5-flash"
+            },
+            {
+              "id": "3b948266-ea4e-4ad5-bd68-7938caa2a2c7",
+              "name": "working_language",
+              "type": "string",
+              "value": "English"
+            },
+            {
+              "id": "aef8c5ce-4df4-4686-b0a8-eb48e0bcf6c8",
+              "name": "system_prompt_generate_kw",
+              "type": "string",
+              "value": "=You are a seasoned marketing director with 10+ years of SEO expertise.\n\nTask: \nRefine the keyword list provided by the user so it is ready for article discovery and high-impact blog-content creation.\n\nGuidelines:\n- Make sure to translate the keywords to {{ $json.main_language }}, if required\n- Determine the search intent of every original keyword.\n- Add relevant long-tail variations, synonyms, and closely related phrases that boost organic reach.\n- Remove duplicates and low-intent terms.\n- Order the final list from highest to lowest strategic value.\n\n\nOutput (strict):\nReturn only the enhanced keywords—no commentary, headings, or additional text, separated by commas"
+            },
+            {
+              "id": "2d9e5524-1921-4b74-9811-9f71f7492e16",
+              "name": "system_prompt_article_outlines",
+              "type": "string",
+              "value": "=Task:\nYou are given the raw output of a search module. Your job is to extract and reformat this information into a JSON structure with the following format:\n{\n  \"articleOutlines\": [\n    {\n      \"title\": \"\",\n      \"markdownOutline\": \"\"\n    }\n  ]\n}\n\nInstructions:\n- Extract three outlines from the provided text.\n- Translate the content to {{ $json.main_language }} if required.\n- For each outline, populate the fields \"title\" and \"markdownOutline\".\n- Replace all newline characters (\\n) in the \"markdownOutline\" field with a literal \\\\n, as the JSON will be sent via an HTTP request.\n- Use only the fields \"title\" and \"markdownOutline\".\n- If any required information is missing, leave the corresponding value as an empty string (\"\").\n- Output only the final JSON. Do not include any code fences such as ```json or explanatory text.\n- Do not include any introductionary text like \"Article outline is the following...\", include ONLY the outline itself, no additional comments."
+            },
+            {
+              "id": "e203aae6-0894-4834-88d9-edb63fa3cff9",
+              "name": "system_prompt_outline",
+              "type": "string",
+              "value": "=You are an established writer assistant in {{ $('Language').item.json.category || $('Webhook').item.json.body?.Category || $('Webhook').item.json.body?.category || 'AI' }}.\n\nYour task is to create a high-quality, streamlined professional article outline that also has excellent SEO in {{ $json.output_language }}.\n\nYou will be provided with:\n- Three outlines from existing articles on the same or related topics (scraped from the web)\n- Several citations with one-line conclusions\n- The target keywords of the article for SEO optimization\n\nInstructions:\n1. Thoroughly analyze all three provided outlines.\n2. Understand the citations and one-line conclusions.\n3. Synthesize their content to generate a new, original outline that:\n- Draws inspiration from the key ideas, structure, and concepts of the originals.\n- Streamlines the structure into clear main sections without sub-sections.\n- Adds new angles or connections not present in the original outlines.\n- Weaves in the citations.\n- Addresses the problem of the target persona.\n4. Make sure that resulting outline composition is well-structured and MECE, has no overlapping topics and no repetitions.\n5. 🚫 NO SUB-SECTIONS OR SUB-HEADINGS (do NOT use ### headers). Each section must be a main topic (## header) only.\n6. Do not copy any sections verbatim. Instead, reframe and combine the best parts while retaining the meaning and introducing improvements.\n7. Preserve the names of important terms, tools, products, or techniques as they appear in the source outlines.\n8. Avoid including any personal information such as author names, article sources, or publication details.\n9. Make sure to include all the given citations, remove any utm_ parameters from the links, use Markdown (ATX) format when linking them.\n\nOutput Format:\n- Use Markdown (ATX) format.\n- Structure your outline with main section headers using # for article title and ## for section titles ONLY (NO sub-sections or ### headers).\n- Keep each section simple and focused.\n- Aim for clarity, completeness, and usefulness.\n\n- STRICT DEDUPLICATION: Every single section must address a distinctly unique subtopic. Absolutely NO duplicate sections, repetitive titles, or overlapping concepts across sections."
+            },
+            {
+              "id": "author-param-id",
+              "name": "author",
+              "type": "string",
+              "value": "Zumify Team"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "18630644-7884-413c-9c2f-665617b94477",
+      "name": "LLM Params",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        432,
+        432
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  tools: [{ google_search: {} }],\n  contents: [{ role: 'user', parts: [{ text: 'Retrieve exactly five authoritative, recent (<= 3 years) sources on keywords: ' + $('Collect Keywords').item.json.output + ' in ' + $('Language').item.json.main_language }] }]\n}) }}",
+        "options": {}
+      },
+      "id": "853e0c28-1163-4b58-a2fb-d45ed8e3e238",
+      "name": "Search Citations",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        2208,
+        432
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\n// Check for Google Gemini grounding metadata chunks if present\nconst groundingChunks = run?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];\nconst groundingSources = groundingChunks.map(chunk => {\n  if (chunk?.web?.uri) {\n    return `- [${chunk.web.title || 'Source'}](${chunk.web.uri})`;\n  }\n  return null;\n}).filter(Boolean);\n\nif (groundingSources.length > 0 && (!assistantText || !assistantText.includes('http'))) {\n  assistantText = (assistantText ? assistantText + '\\n\\n' : '') + groundingSources.slice(0, 5).join('\\n');\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "af2b86b8-a07c-4df2-bffd-108ff8a98666",
+      "name": "Collect Citations",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2400,
+        432
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Structured Output \n\n**Generate Outlines** node is using structured output defined in system prompt in node **LLM Params**. Payload for API call defined in node **Define Schema** where target object schema is defined, see left ->\n```json\n{\n  \"articleOutlines\": [\n    {\n      \"title\": \"\",\n      \"markdownOutline\": \"\"\n    }\n  ]\n}\n```",
+        "height": 496,
+        "width": 704,
+        "color": 7
+      },
+      "id": "f68a5210-9232-4c2c-a033-d3313e303988",
+      "name": "Sticky Note4",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1136,
+        704
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Object Schema for Structured Output \n\nUsing the following schema in **Define Schema** node to define **Generate Outlines** structured output. LLM will return list of sample outlines with `title` and `markdownOutline` properties\n```json\n{\n  \"schema\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"articleOutlines\": {\n            \"type\": \"array\",\n            \"items\": {\n              \"type\": \"object\",\n              \"properties\": {\n                \"title\": { \"type\": \"string\" },\n                \"markdownOutline\": { \"type\": \"string\" }\n              },\n              \"required\": [ \"title\", \"markdownOutline\" ],\n              \"additionalProperties\": false\n            }\n          }\n        },\n        \"required\": [ \"articleOutlines\" ],\n        \"additionalProperties\": false\n      }\n}\n```",
+        "height": 496,
+        "width": 672,
+        "color": 7
+      },
+      "id": "c42ace93-0992-40ff-9639-0b86ec38d948",
+      "name": "Sticky Note5",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1856,
+        704
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Generate Outline\n\nGenerate article outline basing on research and citations ",
+        "height": 480,
+        "width": 2512,
+        "color": 4
+      },
+      "id": "9b62e465-a44a-447e-aa99-4a529ed17321",
+      "name": "Sticky Note6",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        1216
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "7d9d8152-fd4b-4997-b449-40ea10cbf435",
+      "name": "S1",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        2624,
+        432
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "c318286c-103e-474a-92ce-96da029f4459",
+      "name": "S2",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        2608,
+        1088
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "3413afc6-9f9f-4a39-a1b4-d68381e7a552",
+      "name": "S3",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        608,
+        1440
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  tools: [{ google_search: {} }],\n  contents: [{ role: 'user', parts: [{ text: 'Locate exactly three authoritative articles on \"' + $json.output + '\" in ' + $('Language').item.json.main_language }] }]\n}) }}",
+        "options": {}
+      },
+      "id": "1a323a84-afe4-40f7-b61d-2f8ea2cfc843",
+      "name": "Search Articles",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1120,
+        432
+      ],
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "318da2f8-1975-4a4a-9062-409fa23a6a0d",
+      "name": "Collect Articles",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1344,
+        432
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('LLM Params').item.json.system_prompt_outline }] },\n  contents: [{ role: 'user', parts: [{ text: $json.user_prompt }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "1683f1a4-2468-4b3e-8b65-f50f2e7da5d5",
+      "name": "Draft Outline",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1088,
+        1440
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "2bff00e1-75cb-462b-933f-514b39959f4d",
+      "name": "Collect Outline",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1280,
+        1440
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b9c3e5d4-3cda-4223-8335-7eaa2fc72b55",
+              "name": "user_prompt",
+              "type": "string",
+              "value": "={{ (() => {\n  let outlines = [];\n  try {\n    const raw = ($('Collect Outlines').item.json.output || '').replace(/```json|```/gi, '').trim();\n    const parsed = JSON.parse(raw);\n    outlines = parsed.articleOutlines || (Array.isArray(parsed) ? parsed : [parsed]);\n  } catch (e) {}\n\n  const o1 = outlines[0] || { title: 'Outline 1', markdownOutline: '' };\n  const o2 = outlines[1] || { title: 'Outline 2', markdownOutline: '' };\n  const o3 = outlines[2] || { title: 'Outline 3', markdownOutline: '' };\n\n  return `## SEO keywords\\n${ $('Language').item.json.keywords || $('Webhook').item.json.body?.Keywords || '' || '' }\\n\\n## Outline No. 1\\n${ o1.title }\\n${ o1.markdownOutline }\\n\\n## Outline No. 2\\n${ o2.title }\\n${ o2.markdownOutline }\\n\\n## Outline No. 3\\n${ o3.title }\\n${ o3.markdownOutline }\\n\\n## Authoritative Citations\\n${ $('Collect Citations').item.json.output || '' }`;\n})() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0327c771-93f4-4b27-9ba4-d34f80e89781",
+      "name": "Set Outline Prompt",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        848,
+        1440
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "## You can do more! \n\nAdd Human-In-The-Loop interaction or AI-reflection on generated outline. \nCheck, refine and improve the outline to the perfection",
+        "height": 352,
+        "width": 848,
+        "color": 3
+      },
+      "id": "40fd60ab-0357-4b1a-b780-a763ab1f6418",
+      "name": "Sticky Note7",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1648,
+        1312
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Generate Article\n\nGenerate article sections 1 by 1. \nEach section starts with web search relevant to that section, then `advanced_model` from **LLM Params** node is used to write section text. \nSee **Section Prompts** for LLM instructions, tweak them as required for your task",
+        "height": 1696,
+        "width": 2512
+      },
+      "id": "b8ca0d15-4443-4474-a0c8-e2cfbbd4e340",
+      "name": "Sticky Note8",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        1728
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "97e82436-e74a-4f2a-b5bf-3a61482cd09a",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [
+        1696,
+        1472
+      ],
+      "webhookId": "b3e9dc20-340d-4ac9-a5f4-56ea23a0a734",
+      "typeVersion": 2.1,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "additionalFields": {}
+      },
+      "id": "59de5e42-1a04-4357-827b-d447e8a12fca",
+      "name": "Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        1904,
+        1472
+      ],
+      "webhookId": "00aaabd5-1404-4f95-801d-ef9168f99622",
+      "typeVersion": 1.2,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1e7e27c0-9835-413b-abda-74f427b32097",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        2128,
+        1472
+      ],
+      "typeVersion": 2.1,
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "dddb4d1f-6b13-4e36-9543-8054b5dfc2b1",
+      "name": "S4",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        -128,
+        2128
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "1517ec2e-5e99-47f7-add3-c98897ef11da",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        672,
+        2128
+      ],
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4941ff9e-e267-4a9a-b782-c7f63d7e51b2",
+              "name": "main_language",
+              "type": "string",
+              "value": "English"
+            },
+            {
+              "id": "7f30c14e-70ac-413a-9602-e907cafee97c",
+              "name": "output_language",
+              "type": "string",
+              "value": "={{ $json.body?.Language || $json.body?.language || $json.query?.Language || $json.query?.language || $json.Language || $json.language || 'English' }}"
+            },
+            {
+              "id": "category-param-id",
+              "name": "category",
+              "type": "string",
+              "value": "={{ $json.body?.Category || $json.body?.category || $json.body?.['Domain of Expertize'] || $json.body?.['domain_of_expertize'] || $json.query?.Category || $json.query?.category || $json.Category || $json.category || 'AI' }}"
+            },
+            {
+              "id": "keywords-param-id",
+              "name": "keywords",
+              "type": "string",
+              "value": "={{ $json.body?.Keywords || $json.body?.keywords || $json.query?.Keywords || $json.query?.keywords || $json.Keywords || $json.keywords || '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "45cdc755-31c1-460d-ba45-afc107c482ef",
+      "name": "Language",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        240,
+        432
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aa16f13a-e56e-49e2-a8b7-1dfcf7af5279",
+              "name": "sytem_prompt_analyze_section",
+              "type": "string",
+              "value": "=You are an expert content generator specialized in {{ $('Language').item.json.category || $('Webhook').item.json.body?.Category || $('Webhook').item.json.body?.['Domain of Expertize'] || 'AI' }}. \n\nYour task is to create comprehensive, accurate, and well-structured content for a designated section of the article. Use your knowledge to thoroughly address all points described in the section, adhering closely to provided requirements.\n\n## Input:\n\n1. Complete article <outline>\n2. Your <section> structure:\n\n\n## Process:\n1. Understand the overall article structure.\n2. Identify the context and role of your section within the article.\n3. Generate content that is thorough for this section, ensuring no unnecessary duplication with other sections.\n\n## Content Requirements:\n\n1. Progress from general concepts to specifics, dive into details, and conclude with a high-level summary.\n2. Address each subsection in depth, following the order provided.\n3. Incorporate relevant examples, explanations, and context.\n4. Integrate up-to-date knowledge and established concepts from the field.\n5. Maintain an academic and informative tone suitable for research publications.\n6. Organize the content using logical headings and subheadings.\n\n## Content Guidelines:\n\n### Depth and Breadth:\n- Provide comprehensive coverage of every subsection.\n- Define key terms and concepts clearly.\n- Discuss current understanding, applications, and implications.\n- Explain relationships between different concepts as appropriate.\n\n### Structure:\n- Use hierarchical formatting with clear, descriptive headings.\n- Format the section title as a level 2 heading (##).\n- Format each subsection as a level 3 heading (###).\n- Use paragraphs and bullet points for clarity and logical flow.\n- Ensure smooth transitions between subsections.\n\n### Content Quality:\n- Ensure accuracy, depth, and clarity.\n- Illustrate concepts with specific examples.\n- Include relevant data, statistics, or research findings when available.\n- Maintain an objective, scholarly style.\n- Avoid redundant content and unnecessary repetition.\n\n### Technical Considerations:\n- Use markdown formatting for all headings, lists, and emphasis.\n- Apply precise technical terminology; define specialized terms on first use.\n- Include code snippets, formulas, or mathematical notation if relevant.\n\n## Output Format:\nReturn only the fully formatted markdown content for the section. Do not include commentary, process notes, or disclaimers. The output should be ready for direct inclusion in the research report.\n\nRely exclusively on your verified knowledge—do not fabricate studies, data, or direct quotations you cannot substantiate.\n\"\"\"\n"
+            },
+            {
+              "id": "1199cfcd-96de-43a7-ba01-14bc12d520c7",
+              "name": "system_prompt_generate_queries",
+              "type": "string",
+              "value": "=You are a specialized search query generator. Create 2 to 3 targeted, fact-seeking search queries for the given section.\n\nFocus your queries on discovering:\n- Concrete statistics, benchmarks, percentages, and metrics\n- Real-world case studies and industry adoption numbers\n- Specific technical specifications, named tools, and empirical research data\n\nReturn ONLY a numbered list of 2-3 queries."
+            },
+            {
+              "id": "204e4dc5-b894-45d2-87e0-98d300003e04",
+              "name": "system_prompt_search_summary",
+              "type": "string",
+              "value": "=You are a specialized research analyst responsible for curating and synthesizing raw search results into high-density factual briefs.\n\nYour task is to transform unstructured web content into coherent, highly detailed, and fact-rich information for article generation.\n\n## Process:\n1. EXTRACT HARD DATA FIRST:\n   - Identify all specific metrics, percentages, dollar figures, benchmark comparisons, dates, survey results, and sample sizes.\n   - Extract named tools, protocols, frameworks, architectures, companies, and research authors.\n   - Capture technical mechanisms (step-by-step how things work).\n\n2. FILTER OUT:\n   - Marketing fluff, generic boilerplate, advertisements, and superficial summaries.\n   - Vague generalities that lack supporting data.\n\n3. ORGANIZE & PRESERVE SPECIFICITY:\n   - Do NOT round off or oversimplify numbers—preserve exact figures and findings.\n   - Group findings by core concepts, empirical evidence, and practical applications.\n   - Maintain proper source attribution for every data point.\n\n## Output Guidelines:\n- Return the synthesized research in clear Markdown bullet points.\n- Prioritize depth, concrete figures, and technical accuracy.\n- NO IMPORTANT DATA OR NUMBERS SHOULD BE LEFT OUT."
+            },
+            {
+              "id": "ca4026ea-cf6a-41ad-a145-da0641693a5c",
+              "name": "system_prompt_write_section",
+              "type": "string",
+              "value": "=You are a seasoned copywriter and subject matter authority in {{ $('Language').item.json.category || $('Webhook').item.json.body?.Category || $('Webhook').item.json.body?.['Domain of Expertize'] || 'AI' }}.\n\nToday is {{ $now.format('dd/LL/yyyy') }}\n\nYour mission:\nWrite a high-quality, deeply informative, and fact-dense section of an article based on the provided <section_outline>. Focus strictly on the content described in this section.\n\nYou will receive:\n- **Section Outline** – write only this section\n- **SEO keywords** – integrate naturally where relevant\n- **Research summary** – web search findings packed with data, statistics, and industry evidence\n- **Citations** – authoritative sources to ground your claims\n- **Article Outline** – for context on the full piece\n\nOutput Format:\nReturn **only** the section text in {{ $('Language').item.json.output_language }} in Markdown - no commentary, no front-matter.\n\nStyle & FACT-DENSITY Guidelines:\n- Use Markdown (ATX) format starting with an ## heading matching the section outline.\n- 🚫 NO SUB-SECTIONS OR SUB-HEADINGS (do NOT use ### headers inside sections).\n- ⚠️ **SECTION LENGTH**: Write EXACTLY 1 to 3 rich, well-developed paragraphs per section.\n- 🎯 **HIGH FACTUAL DENSITY (MANDATORY)**:\n  - Every paragraph MUST incorporate concrete, specific facts, real-world data points, percentages, benchmark numbers, dollar amounts, dates, or named industry tools/companies from the research summary.\n  - 🚫 NEVER speak in vague generalities (avoid \"studies show AI is growing\" or \"costs can vary widely\"). Instead, cite specific findings (e.g., \"According to industry benchmarks, automated CI pipelines reduce deployment latency by 64%, cutting cloud spend from $12,000 to under $4,500/month\").\n  - Name specific technologies, methodologies, architectural patterns, and real platforms.\n- If citations are provided, incorporate them with standard Markdown links directly after the relevant fact.\n- Maintain an authoritative, professional, and engaging tone—let verifiable facts, numbers, and clear logic do the heavy lifting.\n- Paragraphs should be 3 to 5 substantive sentences each.\n- Ensure the full section content is in {{ $('Language').item.json.output_language }}."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1244d57e-1bcd-46a4-8f17-f855b960cfb0",
+      "name": "Section Prompts",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        112,
+        2128
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('Section Prompts').item.json.sytem_prompt_analyze_section }] },\n  contents: [{ role: 'user', parts: [{ text: '<outline>\\n' + $('Collect Outline').item.json.output + '\\n</outline>\\n\\n<section>\\n' + $json.section + '\\n</section>' }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "1044b803-ed8b-4cc0-bba7-bc3bbcf65086",
+      "name": "Analyze Section",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        960,
+        2496
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={{ JSON.stringify((() => {\n  const raw = ($('Collect Outline').item.json.output || '').replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n  const parts = raw.split(/\\r?\\n##\\s+/);\n  const rawSections = parts.slice(1);\n  const seenKeys = new Set();\n  const uniqueSections = [];\n\n  for (const s of rawSections) {\n    if (!s || !s.trim()) continue;\n    const firstLine = s.trim().split(/\\r?\\n/)[0].trim();\n    const normKey = firstLine.toLowerCase().replace(/[^a-z0-9]/g, '');\n    if (!normKey || seenKeys.has(normKey)) continue;\n    seenKeys.add(normKey);\n    uniqueSections.push(s.trim());\n  }\n\n  return { sections: uniqueSections.length > 0 ? uniqueSections : rawSections };\n})()) }}",
+        "options": {}
+      },
+      "id": "ef3a8370-ab76-4987-8752-b91ae8902e06",
+      "name": "Separate Sections",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        304,
+        2128
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b9c3e5d4-3cda-4223-8335-7eaa2fc72b55",
+              "name": "user_prompt",
+              "type": "string",
+              "value": "=## Section\n{{ $json.sections }}\n\n## Full Article Ouline\n{{ $('Collect Outline').item.json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c4abd286-cd97-4622-bad0-029d3192a603",
+      "name": "Analysis Prompt",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        752,
+        2496
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('Section Prompts').item.json.system_prompt_generate_queries }] },\n  contents: [{ role: 'user', parts: [{ text: '<section_analysis>\\n' + $json.output + '\\n</section_analysis>' }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "9da4d41b-9496-4db4-80dd-6ac01afbb834",
+      "name": "Generate Queries",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1376,
+        2496
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "03c3f19e-6b6e-4dff-bf2d-c26b936df79c",
+      "name": "Collect Queries",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1584,
+        2496
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "search_result"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b78ada7d-cfcd-4d32-8cae-d4c6f7836025",
+      "name": "Aggregate",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        1376,
+        2752
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract search text & metadata from either Ollama or Gemini\nconst items = $input.all();\n\nreturn items.map(item => {\n  const json = item.json;\n  let text = json?.message?.content || json?.response || json?.candidates?.[0]?.content?.parts?.[0]?.text || \"\";\n  \n  const searchQueries = json?.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];\n  const groundingChunks = json?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];\n  \n  const formattedSources = groundingChunks.map(chunk => {\n    if (chunk?.web) return `- [${chunk.web.title || 'Source'}](${chunk.web.uri || ''})`;\n    return null;\n  }).filter(Boolean).join('\\n');\n\n  const queryHeader = searchQueries.length > 0 ? `### Search Query: ${searchQueries.join(', ')}\\n` : '';\n  const sourcesSection = formattedSources ? `\\n\\n### Grounded Sources:\\n${formattedSources}` : '';\n\n  return {\n    json: {\n      search_result: `${queryHeader}${text}${sourcesSection}`.trim() || text || \"No search results found.\"\n    }\n  };\n});"
+      },
+      "id": "89ec9242-bcab-44c7-96ce-cc40e4f155ea",
+      "name": "SearchResult",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1168,
+        2752
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "69886048-3e67-4f83-a598-e55a3b1de531",
+              "name": "prompt",
+              "type": "string",
+              "value": "=Locate **exactly three** authoritative articles published **within the last 12 months** on {{ $json.result }}. \n\nPrefer peer-reviewed journals, major newspapers, or official (.gov, .edu, well-established .org) sources.  \n\nPrefer articles in {{ $('Language').item.json.main_language }}\n\nReturn an **ordered Markdown list** (1., 2., 3.), where each item contains:\n- **Title** – the full headline  \n- **Source & Date** – outlet name, DD MMM YYYY  \n- **URL** – canonical link without any utm_ attributes  \n- **Outline** – 4-6 concise bullet points summarising the article’s main structure or argument flow.\n\nKeep each outline under 120 words and avoid duplicate sources."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c802915b-24e4-45f1-b065-c149526726e0",
+      "name": "Prepare Prompt",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        752,
+        2752
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse generated queries (JSON array, object, or numbered/bulleted list) for Split Queries node\nconst item = $input.first()?.json || {};\nlet text = item.output || '';\nlet resultList = [];\n\n// 1. Try JSON parsing\ntry {\n  const cleaned = text.replace(/```json|```/gi, '').trim();\n  const parsed = JSON.parse(cleaned);\n  if (Array.isArray(parsed)) {\n    resultList = parsed.map(q => typeof q === 'string' ? q : (q.query || q.title || JSON.stringify(q)));\n  } else if (Array.isArray(parsed?.result)) {\n    resultList = parsed.result;\n  } else if (Array.isArray(parsed?.queries)) {\n    resultList = parsed.queries;\n  }\n} catch (e) {}\n\n// 2. If not JSON or empty, parse as line-by-line / numbered list\nif (!resultList || resultList.length === 0) {\n  const lines = text.split('\\n');\n  for (const line of lines) {\n    const cleanLine = line.replace(/^[-*\\d.)\\s]+/, '').trim();\n    if (cleanLine.length > 3) {\n      resultList.push(cleanLine);\n    }\n  }\n}\n\n// 3. Fallback if still empty\nif (resultList.length === 0) {\n  const fallbackQuery = text.trim() || 'industry research and statistics';\n  resultList = [fallbackQuery];\n}\n\nreturn [{ json: { result: resultList } }];"
+      },
+      "id": "1d321414-ac10-44a3-b18e-4a9a634ad9a9",
+      "name": "Convert to Array",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1792,
+        2496
+      ],
+      "typeVersion": 2,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "result",
+        "options": {}
+      },
+      "id": "6adf7d9e-ebff-4254-9d1d-2c0e3e34d242",
+      "name": "Split Queries",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [
+        1984,
+        2496
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "=sections",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "id": "14895e66-fcee-494c-8c1f-b6d3ce64bb69",
+      "name": "Split Sections",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [
+        480,
+        2128
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  tools: [{ google_search: {} }],\n  contents: [{ role: 'user', parts: [{ text: $json.prompt }] }]\n}) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "63d55431-3c68-42de-8c7d-a70f5b612b01",
+      "name": "Web Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        960,
+        2752
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('Section Prompts').item.json.system_prompt_search_summary }] },\n  contents: [{ role: 'user', parts: [{ text: typeof $json.search_results === 'string' ? $json.search_results : JSON.stringify($json.search_results) }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "f32ffccc-7610-4cad-a6f2-a79330cfd50c",
+      "name": "Search Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1792,
+        2752
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "a185a4e5-c874-4f39-989e-5f75236bc2d5",
+      "name": "Collect Summary",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1984,
+        2752
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "92da2000-ee4d-473a-870d-165b86495235",
+              "name": "search_results",
+              "type": "string",
+              "value": "={{ Array.isArray($json.search_result) ? $json.search_result.join('\\n\\n---\\n\\n') : String($json.search_result || '') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "91200adc-c57b-4adc-b991-a74f05566dd6",
+      "name": "Result Prompt",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1584,
+        2752
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "content": "## Write Section ⨉ N\n\nFor each section: write section text",
+        "height": 352,
+        "width": 2288,
+        "color": 4
+      },
+      "id": "5112531f-cea4-4a69-9ac4-57f5850292ae",
+      "name": "Research for Section1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        128,
+        2976
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "69886048-3e67-4f83-a598-e55a3b1de531",
+              "name": "user_prompt",
+              "type": "string",
+              "value": "=<section_outline>\n{{ $('Loop Over Items').item.json.sections }}\n</section_outline>\n\n<SEO keywords>\n{{ $('Collect Keywords').item.json.output }}\n</SEO keywords>\n\n<search_summary>\n{{ $json.output }}\n</search_summary>\n\n<citations>\n{{ $('Collect Citations').item.json.output }}\n</citations>\n"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fdf38759-3ca2-46fe-9311-122b13f42c3d",
+      "name": "Section Prompt",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        752,
+        3072
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('Section Prompts').item.json.system_prompt_write_section }] },\n  contents: [{ role: 'user', parts: [{ text: '<section_outline>\\n' + $json.section + '\\n</section_outline>\\n\\n<SEO_keywords>\\n' + $('Collect Keywords').item.json.output + '\\n</SEO_keywords>\\n\\n<research_summary>\\n' + $json.summary + '\\n</research_summary>\\n\\n<citations>\\n' + $('Collect Citations').item.json.output + '\\n</citations>\\n\\n<article_outline>\\n' + $('Collect Outline').item.json.output + '\\n</article_outline>' }] }]\n}) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "fb41ed19-97da-4ca5-a9a7-0b1b673aad23",
+      "name": "Write Section",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        960,
+        3072
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "a7bf2852-1aee-40c2-8d4d-9b0d30dd4f9f",
+      "name": "Collect Analysis",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1168,
+        2496
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "6d7863cb-9290-45b1-a644-9c27dda03238",
+      "name": "Collect Section",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1168,
+        3072
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {},
+      "id": "76cd5ebd-eb44-4470-b14c-717ad294c4fc",
+      "name": "Next Section",
+      "type": "n8n-nodes-base.noOp",
+      "position": [
+        1392,
+        3072
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Finalize Article\n\nCombine all section of the article",
+        "height": 448,
+        "width": 1424,
+        "color": 5
+      },
+      "id": "1ad49f7a-8743-4880-bd12-2f96c0ea8cb8",
+      "name": "Research for Section2",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        992,
+        1888
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "0bb01708-4a67-4018-8035-f21420bd766e",
+      "name": "Aggregate Sections",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [
+        1072,
+        2080
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Combine Article\n// Assembles and universally sanitizes the article Markdown, Title, and prevents duplicate sections\n\nfunction cleanText(text) {\n  if (!text || typeof text !== 'string') return text || '';\n\n  let str = text;\n\n  // 1. Buffer byte recovery if valid UTF-8 was decoded as Latin1 / Windows-1252\n  try {\n    if (/[\\u00C0-\\u00FF][\\u0080-\\u00BF]/.test(str)) {\n      const recovered = Buffer.from(str, 'latin1').toString('utf8');\n      if (!recovered.includes('\\uFFFD') && recovered.length < str.length) {\n        str = recovered;\n      }\n    }\n  } catch (e) {}\n\n  // 2. Direct literal replacements for Hawaiian words & diacritics\n  str = str\n    .replace(/M[Ää]lama/gi, \"Mālama\")\n    .replace(/Hawai[Ê»'ʻ`’]+i/gi, \"Hawai'i\")\n    .replace(/O[Ê»'ʻ`’]+ahu/gi, \"O'ahu\")\n    .replace(/Kaua[Ê»'ʻ`’]+i/gi, \"Kaua'i\")\n    .replace(/Moloka[Ê»'ʻ`’]+i/gi, \"Moloka'i\")\n    .replace(/L[Äā]na[Ê»'ʻ`’]+i/gi, \"Lāna'i\")\n    .replace(/k[Åå][«\\u00AB\\u00BB]*puna/gi, \"kūpuna\")\n    .replace(/aloha [Ää]ina/gi, \"aloha ʻāina\")\n    .replace(/Ê»|Ê½|â€˜|â€™/g, \"'\")\n    .replace(/ʻ|ʽ|`|´|‘|’/g, \"'\")\n    .replace(/Ä\\u0081|Ä(?=[a-z])/g, \"ā\")\n    .replace(/Ä\\u0093/g, \"ē\")\n    .replace(/Ä\\u00AB/g, \"ī\")\n    .replace(/Å\\u008D|Å /g, \"ō\")\n    .replace(/Å\\u00AB|Å«/g, \"ū\")\n    .replace(/Ä\\u0080/g, \"Ā\")\n    .replace(/Ä\\u0092/g, \"Ē\")\n    .replace(/Ä\\u00AA/g, \"Ī\")\n    .replace(/Å\\u008C/g, \"Ō\")\n    .replace(/Å\\u00AA/g, \"Ū\")\n    .replace(/Ã¡/g, \"á\")\n    .replace(/Ã©/g, \"é\")\n    .replace(/Ã­/g, \"í\")\n    .replace(/Ã³/g, \"ó\")\n    .replace(/Ãº/g, \"ú\")\n    .replace(/Ã±/g, \"ñ\")\n    .replace(/Ã¼/g, \"ü\")\n    .replace(/Ã§/g, \"ç\")\n    .replace(/Ã¨/g, \"è\")\n    .replace(/Ã /g, \"à\")\n    .replace(/â\\u0080\\u0094|â€”/g, \" - \")\n    .replace(/â\\u0080\\u0093|â€“/g, \" - \")\n    .replace(/â\\u0080\\u009c|â€œ/g, '\"')\n    .replace(/â\\u0080\\u009d|â€ |â€ /g, '\"')\n    .replace(/â\\u0080\\u00a6|â€¦/g, \"...\")\n    .replace(/â\\u0080\\u00a2|â€¢/g, \"•\")\n    .replace(/[\\u201C\\u201D\\u201E\\u201F]/g, '\"')\n    .replace(/[\\u2013\\u2014]/g, \" - \")\n    .replace(/\\u2026/g, \"...\")\n    .replace(/\\u00A0/g, \" \");\n\n  return str.trim();\n}\n\nlet rawTitleIntro = $('Collect Title and Intro').first()?.json?.output || '';\nrawTitleIntro = rawTitleIntro.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n\nlet rawTitle = 'Article';\nif (rawTitleIntro) {\n  const lines = rawTitleIntro.split('\\n');\n  const titleLine = lines.find(l => l.trim().startsWith('# '));\n  if (titleLine) {\n    rawTitle = titleLine.replace(/^#\\s+/, '').trim();\n  } else if (lines.length > 0 && lines[0].trim()) {\n    rawTitle = lines[0].replace(/^[#\\s*]+/, '').trim();\n  }\n}\n\nconst title = cleanText(rawTitle);\n\nconst rawSections = $('Aggregate Sections').first()?.json?.data || [];\nconst seenSecKeys = new Set();\nconst uniqueSectionTexts = [];\n\nfor (const item of rawSections) {\n  const text = (item.output || '').trim();\n  if (!text) continue;\n  const firstLine = text.split('\\n')[0].trim();\n  const key = firstLine.toLowerCase().replace(/[^a-z0-9]/g, '');\n  if (key && seenSecKeys.has(key)) continue;\n  if (key) seenSecKeys.add(key);\n  uniqueSectionTexts.push(text);\n}\n\nconst sectionsContent = uniqueSectionTexts.join('\\n\\n');\n\nconst conclusionContent = $('Collect Conclusion').first()?.json?.output || '';\nconst citationsContent = $('Collect Citations').first()?.json?.output || '';\nconst imageRecsContent = $('Collect Image Recommendations').first()?.json?.output || '';\n\n// Clean and restrict citations in References section to a maximum of 15 items\nconst seenRefUrls = new Set();\nconst uniqueRefLines = [];\n\nfunction addReferences(text) {\n  if (!text) return;\n  const lines = text.split('\\n');\n  for (const l of lines) {\n    if (uniqueRefLines.length >= 15) break;\n    const trimL = l.trim();\n    if (!trimL) continue;\n    const m = trimL.match(/\\((https?:\\/\\/[^\\)]+)\\)/);\n    const url = m ? m[1] : trimL;\n    if (url.includes('unsplash.com')) continue;\n    if (!seenRefUrls.has(url)) {\n      seenRefUrls.add(url);\n      uniqueRefLines.push(trimL.startsWith('-') || trimL.match(/^\\d+\\./) ? trimL : `- ${trimL}`);\n    }\n  }\n}\n\naddReferences(citationsContent);\nconst formattedReferences = uniqueRefLines.slice(0, 15).join('\\n');\n\nconst fullArticleRaw = [\n  rawTitleIntro,\n  sectionsContent,\n  conclusionContent,\n  formattedReferences ? ('## References\\n\\n' + formattedReferences) : ('## References\\n\\n' + citationsContent),\n  imageRecsContent\n].filter(Boolean).join('\\n\\n');\n\nconst cleanArticle = cleanText(fullArticleRaw);\n\nreturn [{\n  json: {\n    title: title,\n    article: cleanArticle\n  }\n}];"
+      },
+      "id": "c6c11544-db2f-40e3-b54c-f50fdf474f65",
+      "name": "Combine Article",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2704,
+        2080
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Article is Ready \n\nThe article is ready. It's in Markdown format.\n\nYou can add more polishing: improve readability, cross-check SEO, etc.\nInsert SEO title. Export to target format like HTML / PDF.",
+        "height": 368,
+        "width": 672,
+        "color": 3
+      },
+      "id": "2d272265-c510-40a2-b9cd-dc16e643bfff",
+      "name": "Sticky Note9",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        3184,
+        1872
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "59234163-5b03-4ea8-9192-ff6eed2214e8",
+      "name": "Markdown",
+      "type": "n8n-nodes-base.markdown",
+      "position": [
+        3664,
+        2032
+      ],
+      "typeVersion": 1,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Section is Ready \n\nYou can add reflection - analysing the section and creating a list of required changes, that after applied to original section text.\n\nYou can check readability, SEO score, etc. whatever suits your task",
+        "height": 240,
+        "width": 640,
+        "color": 3
+      },
+      "id": "1c988064-789e-4859-aea4-9f0ff10e43f3",
+      "name": "Sticky Note10",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1712,
+        3024
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "79fa4f17-10d3-4ad1-8e74-f6d561cecf10",
+      "name": "AI Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        3232,
+        2032
+      ],
+      "typeVersion": 2.1,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Research Section ⨉ N\n\nFor each section: collect information relevant to section",
+        "height": 608,
+        "width": 2288,
+        "color": 4
+      },
+      "id": "1046c378-9309-4f83-a935-6b2a858bf5cd",
+      "name": "Research for Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        128,
+        2352
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "article",
+        "options": {
+          "fileName": "={{ $json.title }}.md"
+        }
+      },
+      "id": "54f94996-77c6-4583-88b3-cb7abf82b1f4",
+      "name": "Markdown File",
+      "type": "n8n-nodes-base.convertToFile",
+      "position": [
+        2880,
+        2080
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.simple_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  system_instruction: { parts: [{ text: $('LLM Params').item.json.system_prompt_article_outlines }] },\n  contents: [{ role: \"user\", parts: [{ text: $json.output }] }],\n  generation_config: {\n    response_mime_type: \"application/json\",\n    response_schema: {\n      type: \"OBJECT\",\n      properties: {\n        articleOutlines: {\n          type: \"ARRAY\",\n          items: {\n            type: \"OBJECT\",\n            properties: {\n              title: { type: \"STRING\" },\n              markdownOutline: { type: \"STRING\" }\n            },\n            required: [\"title\", \"markdownOutline\"]\n          }\n        }\n      },\n      required: [\"articleOutlines\"]\n    }\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "7d050cfc-e1e9-4600-9237-200d667c9b40",
+      "name": "Analyze Articles",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1568,
+        432
+      ],
+      "retryOnFail": true,
+      "typeVersion": 4.2,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "b861efdb-9ecf-427c-896e-f9b03581d5f9",
+      "name": "Collect Outlines",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2016,
+        432
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "content": "## Quickstart \n\n- Enter your **Google Gemini credentials** (API key)\n- set your `simple_model` and `advanced_model` in **LLM Params** node",
+        "height": 240,
+        "width": 576,
+        "color": 3
+      },
+      "id": "c52ff58e-6ffc-4d19-9b1f-dda4606ac163",
+      "name": "Sticky Note11",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        0,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Description\n\nGenerate research-backed article with n8n.\nUse this workflow as a cornerstone for your AI content assistant. Primary goal here is to learn basic concepts and approach to research-based content generation",
+        "height": 240,
+        "width": 1936,
+        "color": 7
+      },
+      "id": "9d85f928-1b84-4dc7-a447-acfe7ad38025",
+      "name": "Sticky Note12",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        592,
+        0
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const sysText = `You are a master copywriter and editor. Your task is to write an engaging Article Title and Introduction section for an article based on the provided body sections.\\n\\nStyle Guidelines:\\n- Return ONLY Markdown starting with an H1 (# Article Title) followed by an H2 (## Introduction).\\n- The Article Title MUST have a maximum of 10 words.\\n- The Introduction section MUST be 1 to 3 paragraphs long, hooking readers immediately with a striking real-world fact, trend statistic, or industry insight.\\n- 🚫 Do NOT include sub-sections or sub-headings (no ### headers).\\n- Write in ${ $('Language').item.json.output_language || 'English' }.\\n- Do not write body sections or conclusions, ONLY the Title and Introduction.`;\n  const bodyContent = $('Aggregate Sections').item.json.data.map(item => item.output).join('\\n\\n');\n  const userText = `<keywords>\\n${ $('Collect Keywords').item.json.output }\\n</keywords>\\n\\n<body_sections>\\n${ bodyContent }\\n</body_sections>`;\n  return {\n    system_instruction: { parts: [{ text: sysText }] },\n    contents: [{ role: 'user', parts: [{ text: userText }] }]\n  };\n})()) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "node-write-title-intro-1785987700278",
+      "name": "Write Title and Intro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1264,
+        2080
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "node-collect-title-intro-1785987700278",
+      "name": "Collect Title and Intro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const sysText = `You are a master copywriter and editor. Your task is to write a compelling Conclusion section for an article based on the provided title, intro, and body sections.\\n\\nStyle Guidelines:\\n- Return ONLY Markdown starting with an H2 (## Conclusion).\\n- The Conclusion section MUST be 1 to 3 paragraphs long.\\n- 🚫 Do NOT include sub-sections or sub-headings (no ### headers).\\n- Summarize core takeaways, wrap up key insights, and provide a strong final thought.\\n- Write in ${ $('Language').item.json.output_language || 'English' }.\\n- Do not write intro or body sections, ONLY the Conclusion section.`;\n  const titleAndIntro = $('Collect Title and Intro').item.json.output;\n  const bodyContent = $('Aggregate Sections').item.json.data.map(item => item.output).join('\\n\\n');\n  const userText = `<article_prefix>\\n${ titleAndIntro }\\n</article_prefix>\\n\\n<body_sections>\\n${ bodyContent }\\n</body_sections>`;\n  return {\n    system_instruction: { parts: [{ text: sysText }] },\n    contents: [{ role: 'user', parts: [{ text: userText }] }]\n  };\n})()) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "node-write-conclusion-1785987700278",
+      "name": "Write Conclusion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1632,
+        2080
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "node-collect-conclusion-1785987700278",
+      "name": "Collect Conclusion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const sysText = `You are an editorial photo curator. Your task is to plan focused, high-yield stock photo search queries for an article based on its title and body sections.\\n\\nFor each section, provide a clean 5-word photography search query suitable for stock photo search engines like Unsplash (e.g., \\\"friends playing video games together\\\", \\\"commercial ocean fishing boat crew\\\", \\\"modern collaborative office workspace team\\\", \\\"deep sea sports fishing charter\\\", \\\"hotel concierge using digital tablet\\\").\\n\\nRULES:\\n- Exactly 5 words per query (concise and focused on photographic subjects).\\n- DO NOT write full conversational sentences or overly elaborate descriptions.\\n- Use clean stock photography search keywords.\\n\\nStrict Output Format (JSON Array ONLY, no markdown fences):\\n[\\n  {\\n    \\\"section\\\": \\\"Cover / Hero Image\\\",\\n    \\\"query\\\": \\\"clean 5 word photo query\\\",\\n    \\\"alt\\\": \\\"brief descriptive alt text\\\"\\n  },\\n  {\\n    \\\"section\\\": \\\"Section Name\\\",\\n    \\\"query\\\": \\\"clean 5 word photo query\\\",\\n    \\\"alt\\\": \\\"brief descriptive alt text\\\"\\n  }\\n]`;\n  const titleIntro = $('Collect Title and Intro').item.json.output;\n  const bodySections = $('Aggregate Sections').item.json.data.map(item => item.output).join('\\n\\n');\n  const conclusion = $('Collect Conclusion').item.json.output;\n  const userText = `<full_article>\\n${ titleIntro }\\n\\n${ bodySections }\\n\\n${ conclusion }\\n</full_article>`;\n  return {\n    system_instruction: { parts: [{ text: sysText }] },\n    contents: [{ role: 'user', parts: [{ text: userText }] }]\n  };\n})()) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "node-gen-image-recs-1785995230260",
+      "name": "Generate Image Recommendations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1984,
+        2080
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Collect Image Recommendations\n// Inputs: Responses from Unsplash API (Search Unsplash Images)\n// Strictly uses real Unsplash photos. If Unsplash image comes out blank or fails, keeps the image blank.\n\nconst items = $input.all();\nconst originalQueries = $('Prepare Image Queries').all();\n\nconst usedPhotoIds = new Set();\nconst usedUrls = new Set();\n\nfunction getPhotoId(url) {\n  if (!url) return '';\n  const match = url.match(/photo-([a-zA-Z0-9_-]+)/);\n  if (match) return match[1];\n  return url.split('?')[0].toLowerCase();\n}\n\nfunction markUsed(url, pid) {\n  if (!url) return;\n  usedUrls.add(url);\n  const photoId = pid || getPhotoId(url);\n  if (photoId) usedPhotoIds.add(photoId);\n}\n\nfunction isUsed(url, candidateId) {\n  if (!url) return true;\n  if (usedUrls.has(url)) return true;\n  const pid = candidateId || getPhotoId(url);\n  if (pid && usedPhotoIds.has(pid)) return true;\n  return false;\n}\n\nfunction formatUnsplashUrl(rawUrl) {\n  if (!rawUrl) return '';\n  const base = rawUrl.split('?')[0];\n  return `${base}?auto=format&fit=crop&w=1200&q=80`;\n}\n\nconst markdownSections = ['## Featured Images\\n'];\nconst count = Math.max(items.length, originalQueries.length);\n\nfor (let i = 0; i < count; i++) {\n  const orig = originalQueries[i]?.json || {};\n  const resp = items[i]?.json || {};\n  const sectionName = orig.section || (i === 0 ? 'Cover / Hero Image' : `Featured Image ${i + 1}`);\n  const query = orig.query || sectionName;\n  const alt = orig.alt || sectionName;\n\n  let chosenUrl = null;\n  let credit = null;\n\n  // Process Unsplash API results if available\n  const results = resp.results || resp.data?.results || (Array.isArray(resp) ? resp : []);\n  if (Array.isArray(results) && results.length > 0) {\n    const candidate = results.find(p => {\n      const rawUrl = p.urls?.regular || p.urls?.full || p.urls?.small;\n      return rawUrl && !isUsed(formatUnsplashUrl(rawUrl), p.id);\n    });\n\n    if (candidate) {\n      const rawUrl = candidate.urls?.regular || candidate.urls?.full || candidate.urls?.small;\n      chosenUrl = formatUnsplashUrl(rawUrl);\n      markUsed(chosenUrl, candidate.id);\n      const photographer = candidate.user?.name || 'Unsplash Contributor';\n      const userLink = candidate.user?.links?.html || 'https://unsplash.com';\n      credit = `Photo by [${photographer}](${userLink}?utm_source=n8n_article_gen&utm_medium=referral) on [Unsplash](https://unsplash.com?utm_source=n8n_article_gen&utm_medium=referral)`;\n    }\n  }\n\n  markdownSections.push(`### ${sectionName}`);\n  if (chosenUrl) {\n    markdownSections.push(`![${alt}](${chosenUrl})`);\n    if (credit) {\n      markdownSections.push(`*${credit}*\\n`);\n    } else {\n      markdownSections.push('\\n');\n    }\n  } else {\n    markdownSections.push('\\n');\n  }\n}\n\nconst finalMarkdown = markdownSections.join('\\n');\nreturn [{ json: { output: finalMarkdown } }];"
+      },
+      "id": "node-collect-image-recs-1785995230260",
+      "name": "Collect Image Recommendations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $('LLM Params').item.json.advanced_model }}:generateContent",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const sysText = `You are an SEO specialist and copywriter. Your task is to write a concise, compelling SEO meta description for an article to be used on the Resources page and for Search Engine snippets.\\n\\nGuidelines:\\n- Exactly 1 to 2 sentences (140 to 160 characters ideally, max 200 characters).\\n- Highlight the core insight or benefit to hook searchers and readers.\\n- Return ONLY plain text. No quotation marks, no Markdown, no commentary.`;\n  const title = $('Combine Article').item.json.title || '';\n  const fullText = $('Combine Article').item.json.article || '';\n  const userText = `<article_title>\\n${ title }\\n</article_title>\\n\\n<article_summary>\\n${ fullText.slice(0, 3000) }\\n</article_summary>`;\n  return {\n    system_instruction: { parts: [{ text: sysText }] },\n    contents: [{ role: 'user', parts: [{ text: userText }] }]\n  };\n})()) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "gen-seo-desc-1787295914732",
+      "name": "Generate SEO Description",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2880,
+        2288
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "066YgQ0QJYHFri3P",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// input: raw API JSON under $.json\nconst run = items[0].json;\nlet assistantText = null;\n\nif (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  assistantText = run.candidates[0].content.parts[0].text;\n} else if (run?.message?.content) {\n  assistantText = run.message.content;\n} else if (run?.response) {\n  assistantText = run.response;\n} else if (typeof run.output === 'string') {\n  assistantText = run.output;\n} else if (run.text) {\n  assistantText = run.text;\n}\n\nreturn [{ json: { output: assistantText || '' } }];"
+      },
+      "id": "collect-seo-desc-1787295914732",
+      "name": "Collect SEO Description",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3072,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Remove In-Text Citations\n// Strips in-text URLs, markdown link tags, parenthesized citations, and stray brackets while universally fixing Hawaiian diacritics and smart punctuation\n\nfunction cleanText(text) {\n  if (!text || typeof text !== 'string') return text || '';\n\n  let str = text;\n\n  // 1. Buffer byte recovery if valid UTF-8 was decoded as Latin1 / Windows-1252\n  try {\n    if (/[\\u00C0-\\u00FF][\\u0080-\\u00BF]/.test(str)) {\n      const recovered = Buffer.from(str, 'latin1').toString('utf8');\n      if (!recovered.includes('\\uFFFD') && recovered.length < str.length) {\n        str = recovered;\n      }\n    }\n  } catch (e) {}\n\n  // 2. Direct literal replacements for Hawaiian words & diacritics\n  str = str\n    .replace(/M[Ää]lama/gi, \"Mālama\")\n    .replace(/Hawai[Ê»'ʻ`’]+i/gi, \"Hawai'i\")\n    .replace(/O[Ê»'ʻ`’]+ahu/gi, \"O'ahu\")\n    .replace(/Kaua[Ê»'ʻ`’]+i/gi, \"Kaua'i\")\n    .replace(/Moloka[Ê»'ʻ`’]+i/gi, \"Moloka'i\")\n    .replace(/L[Äā]na[Ê»'ʻ`’]+i/gi, \"Lāna'i\")\n    .replace(/k[Åå][«\\u00AB\\u00BB]*puna/gi, \"kūpuna\")\n    .replace(/aloha [Ää]ina/gi, \"aloha ʻāina\")\n    .replace(/Ê»|Ê½|â€˜|â€™/g, \"'\")\n    .replace(/ʻ|ʽ|`|´|‘|’/g, \"'\")\n    .replace(/Ä\\u0081|Ä(?=[a-z])/g, \"ā\")\n    .replace(/Ä\\u0093/g, \"ē\")\n    .replace(/Ä\\u00AB/g, \"ī\")\n    .replace(/Å\\u008D|Å /g, \"ō\")\n    .replace(/Å\\u00AB|Å«/g, \"ū\")\n    .replace(/Ä\\u0080/g, \"Ā\")\n    .replace(/Ä\\u0092/g, \"Ē\")\n    .replace(/Ä\\u00AA/g, \"Ī\")\n    .replace(/Å\\u008C/g, \"Ō\")\n    .replace(/Å\\u00AA/g, \"Ū\")\n    .replace(/Ã¡/g, \"á\")\n    .replace(/Ã©/g, \"é\")\n    .replace(/Ã­/g, \"í\")\n    .replace(/Ã³/g, \"ó\")\n    .replace(/Ãº/g, \"ú\")\n    .replace(/Ã±/g, \"ñ\")\n    .replace(/Ã¼/g, \"ü\")\n    .replace(/Ã§/g, \"ç\")\n    .replace(/Ã¨/g, \"è\")\n    .replace(/Ã /g, \"à\")\n    .replace(/â\\u0080\\u0094|â€”/g, \" - \")\n    .replace(/â\\u0080\\u0093|â€“/g, \" - \")\n    .replace(/â\\u0080\\u009c|â€œ/g, '\"')\n    .replace(/â\\u0080\\u009d|â€ |â€ /g, '\"')\n    .replace(/â\\u0080\\u00a6|â€¦/g, \"...\")\n    .replace(/â\\u0080\\u00a2|â€¢/g, \"•\")\n    .replace(/[\\u201C\\u201D\\u201E\\u201F]/g, '\"')\n    .replace(/[\\u2013\\u2014]/g, \" - \")\n    .replace(/\\u2026/g, \"...\")\n    .replace(/\\u00A0/g, \" \");\n\n  return str.trim();\n}\n\nfunction stripInTextCitations(text) {\n  if (!text) return '';\n  let str = text;\n\n  // 1. Remove markdown links where link text is a URL, or generic link/source/ref\n  str = str.replace(/\\[\\s*(?:https?:\\/\\/[^\\s\\]]+|link|source|url|ref|citation)\\s*\\]\\([^\\)]+\\)/gi, '');\n\n  // 2. Remove markdown links keeping just clean anchor text: [Harvard Business Review](http...) -> Harvard Business Review\n  str = str.replace(/\\[([^\\]]+)\\]\\(https?:\\/\\/[^\\)]+\\)/g, '$1');\n\n  // 3. Remove parenthesized or bracketed URLs: (https://...) or [https://...] or (URL: https://...)\n  str = str.replace(/\\s*[\\(\\[]\\s*(?:URL:\\s*)?https?:\\/\\/[^\\s\\)\\]]+[\\)\\]]/gi, '');\n\n  // 4. Remove standalone URLs or 'URL: https://...'\n  str = str.replace(/\\s*(?:URL:\\s*)https?:\\/\\/[^\\s\\)\\],;]+/gi, '');\n  str = str.replace(/\\s*https?:\\/\\/[^\\s\\)\\],;]+/gi, '');\n\n  // 5. Remove numeric / footnote citations like [1], [2], (1), (2)\n  str = str.replace(/\\s*\\[\\d+\\]/g, '');\n\n  // 6. Remove generic citation brackets like [link], [source], [ref]\n  str = str.replace(/\\[\\s*(?:link|source|ref|citation)\\s*\\]/gi, '');\n\n  // 7. Strip square brackets from publication names: '[GamesRadar+]' -> 'GamesRadar+'\n  str = str.replace(/\\[([^\\]\\n]{1,60})\\]/g, '$1');\n\n  // 8. Clean up stray unclosed brackets: ], [\n  str = str.replace(/\\s*\\](?=[.,;:!?\\s]|$)/g, '');\n  str = str.replace(/(?<=[\\s]|^)\\[\\s*/g, '');\n\n  // 9. Clean multiple spaces and spaces before punctuation\n  str = str.replace(/\\s+([.,;:!?])/g, '$1');\n  str = str.replace(/\\s{2,}/g, ' ');\n\n  return str.trim();\n}\n\nconst rawTitleIntro = $('Collect Title and Intro').first()?.json?.output || '';\nconst rawTakeaways = $('Collect Conclusion').first()?.json?.output || '';\nconst rawSections = $('Aggregate Sections').first()?.json?.data || [];\n\nlet cleanTitle = 'Article';\nlet cleanIntro = '';\n\nif (rawTitleIntro) {\n  const lines = rawTitleIntro.split('\\n');\n  const titleLine = lines.find(l => l.trim().startsWith('# '));\n  if (titleLine) {\n    cleanTitle = titleLine.replace(/^#\\s+/, '').trim();\n    cleanIntro = lines.filter(l => l !== titleLine && !l.trim().startsWith('##')).join('\\n').trim();\n  } else {\n    cleanIntro = rawTitleIntro;\n  }\n}\n\ncleanTitle = cleanText(stripInTextCitations(cleanTitle));\ncleanIntro = cleanText(stripInTextCitations(cleanIntro));\nconst cleanTakeaways = cleanText(stripInTextCitations(rawTakeaways));\n\nconst cleanedSections = [];\nconst seenSecKeys = new Set();\n\nfor (let idx = 0; idx < rawSections.length; idx++) {\n  const item = rawSections[idx];\n  const fullText = (item.output || '').trim();\n  if (!fullText) continue;\n\n  const lines = fullText.split('\\n');\n  let sTitle = `Section ${idx + 1}`;\n  let contentLines = [];\n\n  if (lines[0].trim().startsWith('#')) {\n    sTitle = lines[0].replace(/^#+\\s*/, '').trim();\n    contentLines = lines.slice(1);\n  } else {\n    contentLines = lines;\n  }\n\n  const sContent = contentLines.join('\\n').trim();\n  const cTitle = cleanText(stripInTextCitations(sTitle));\n  const cContent = cleanText(stripInTextCitations(sContent));\n\n  const key = cTitle.toLowerCase().replace(/[^a-z0-9]/g, '');\n  if (key && seenSecKeys.has(key)) continue;\n  if (key) seenSecKeys.add(key);\n\n  cleanedSections.push({\n    title: cTitle,\n    content: cContent\n  });\n}\n\nreturn [{\n  json: {\n    cleanTitle,\n    cleanIntro,\n    cleanTakeaways,\n    cleanedSections\n  }\n}];"
+      },
+      "id": "remove-intext-cit-1787295914732",
+      "name": "Remove In-Text Citations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3248,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Build JSON Article\n// Builds the final clean JSON structure with strictly deduplicated sections, clean link titles in sources, no in-text URLs in body, and blank image if unsplash is blank.\n\nfunction cleanText(text) {\n  if (!text || typeof text !== 'string') return text || '';\n\n  let str = text;\n\n  // 1. Buffer byte recovery if valid UTF-8 was decoded as Latin1 / Windows-1252\n  try {\n    if (/[\\u00C0-\\u00FF][\\u0080-\\u00BF]/.test(str)) {\n      const recovered = Buffer.from(str, 'latin1').toString('utf8');\n      if (!recovered.includes('\\uFFFD') && recovered.length < str.length) {\n        str = recovered;\n      }\n    }\n  } catch (e) {}\n\n  // 2. Direct literal replacements for Hawaiian words & diacritics\n  str = str\n    .replace(/M[Ää]lama/gi, \"Mālama\")\n    .replace(/Hawai[Ê»'ʻ`’]+i/gi, \"Hawai'i\")\n    .replace(/O[Ê»'ʻ`’]+ahu/gi, \"O'ahu\")\n    .replace(/Kaua[Ê»'ʻ`’]+i/gi, \"Kaua'i\")\n    .replace(/Moloka[Ê»'ʻ`’]+i/gi, \"Moloka'i\")\n    .replace(/L[Äā]na[Ê»'ʻ`’]+i/gi, \"Lāna'i\")\n    .replace(/k[Åå][«\\u00AB\\u00BB]*puna/gi, \"kūpuna\")\n    .replace(/aloha [Ää]ina/gi, \"aloha ʻāina\")\n    .replace(/Ê»|Ê½|â€˜|â€™/g, \"'\")\n    .replace(/ʻ|ʽ|`|´|‘|’/g, \"'\")\n    .replace(/Ä\\u0081|Ä(?=[a-z])/g, \"ā\")\n    .replace(/Ä\\u0093/g, \"ē\")\n    .replace(/Ä\\u00AB/g, \"ī\")\n    .replace(/Å\\u008D|Å /g, \"ō\")\n    .replace(/Å\\u00AB|Å«/g, \"ū\")\n    .replace(/Ä\\u0080/g, \"Ā\")\n    .replace(/Ä\\u0092/g, \"Ē\")\n    .replace(/Ä\\u00AA/g, \"Ī\")\n    .replace(/Å\\u008C/g, \"Ō\")\n    .replace(/Å\\u00AA/g, \"Ū\")\n    .replace(/Ã¡/g, \"á\")\n    .replace(/Ã©/g, \"é\")\n    .replace(/Ã­/g, \"í\")\n    .replace(/Ã³/g, \"ó\")\n    .replace(/Ãº/g, \"ú\")\n    .replace(/Ã±/g, \"ñ\")\n    .replace(/Ã¼/g, \"ü\")\n    .replace(/Ã§/g, \"ç\")\n    .replace(/Ã¨/g, \"è\")\n    .replace(/Ã /g, \"à\")\n    .replace(/â\\u0080\\u0094|â€”/g, \" - \")\n    .replace(/â\\u0080\\u0093|â€“/g, \" - \")\n    .replace(/â\\u0080\\u009c|â€œ/g, '\"')\n    .replace(/â\\u0080\\u009d|â€ |â€ /g, '\"')\n    .replace(/â\\u0080\\u00a6|â€¦/g, \"...\")\n    .replace(/â\\u0080\\u00a2|â€¢/g, \"•\")\n    .replace(/[\\u201C\\u201D\\u201E\\u201F]/g, '\"')\n    .replace(/[\\u2013\\u2014]/g, \" - \")\n    .replace(/\\u2026/g, \"...\")\n    .replace(/\\u00A0/g, \" \");\n\n  return str.trim();\n}\n\nfunction stripInTextCitations(text) {\n  if (!text) return '';\n  let str = text;\n\n  // Remove markdown links where text is a URL or generic link\n  str = str.replace(/\\[\\s*(?:https?:\\/\\/[^\\s\\]]+|link|source|url|ref|citation)\\s*\\]\\([^\\)]+\\)/gi, '');\n  // Keep clean anchor text: [Harvard Business Review](http...) -> Harvard Business Review\n  str = str.replace(/\\[([^\\]]+)\\]\\(https?:\\/\\/[^\\)]+\\)/g, '$1');\n  // Remove parenthesized or bracketed URLs: (https://...) or [https://...]\n  str = str.replace(/\\s*[\\(\\[]\\s*(?:URL:\\s*)?https?:\\/\\/[^\\s\\)\\]]+[\\)\\]]/gi, '');\n  // Remove standalone URLs\n  str = str.replace(/\\s*(?:URL:\\s*)https?:\\/\\/[^\\s\\)\\],;]+/gi, '');\n  str = str.replace(/\\s*https?:\\/\\/[^\\s\\)\\],;]+/gi, '');\n  // Remove numeric citations\n  str = str.replace(/\\s*\\[\\d+\\]/g, '');\n  // Remove generic citation brackets\n  str = str.replace(/\\[\\s*(?:link|source|ref|citation)\\s*\\]/gi, '');\n  // Strip square brackets from names\n  str = str.replace(/\\[([^\\]\\n]{1,60})\\]/g, '$1');\n  // Clean unclosed brackets\n  str = str.replace(/\\s*\\](?=[.,;:!?\\s]|$)/g, '');\n  str = str.replace(/(?<=[\\s]|^)\\[\\s*/g, '');\n  // Clean spacing\n  str = str.replace(/\\s+([.,;:!?])/g, '$1');\n  str = str.replace(/\\s{2,}/g, ' ');\n\n  return str.trim();\n}\n\nfunction getPhotoId(url) {\n  if (!url) return '';\n  const m = url.match(/photo-([a-zA-Z0-9_-]+)/);\n  return m ? m[1] : url;\n}\n\n// Format source titles to be clean, consistent publication or topic titles\nfunction formatSourceTitle(rawTitle, url) {\n  let title = (rawTitle || '').replace(/^[\\(\\[]+|[\\)\\]]+$/g, '').trim();\n  title = title.replace(/^[\"']+|[\"']+$/g, '').trim();\n  title = cleanText(title);\n\n  const domainMap = {\n    'sciencedirect.com': 'ScienceDirect',\n    'ieeexplore.ieee.org': 'IEEE Xplore',\n    'ieee.org': 'IEEE Transactions',\n    'academic.oup.com': 'Oxford Academic',\n    'sensortower.com': 'Sensor Tower',\n    'gamesradar.com': 'GamesRadar+',\n    'pcgamer.com': 'PC Gamer',\n    'ign.com': 'IGN',\n    'eurogamer.net': 'Eurogamer',\n    'polygon.com': 'Polygon',\n    'newzoo.com': 'Newzoo',\n    'gamedeveloper.com': 'Game Developer',\n    'mdpi.com': 'MDPI',\n    'dl.acm.org': 'ACM Digital Library',\n    'acm.org': 'ACM',\n    'researchgate.net': 'ResearchGate',\n    'frontiersin.org': 'Frontiers in Psychology',\n    'techcrunch.com': 'TechCrunch',\n    'theverge.com': 'The Verge',\n    'forbes.com': 'Forbes',\n    'bloomberg.com': 'Bloomberg',\n    'reuters.com': 'Reuters',\n    'wsj.com': 'The Wall Street Journal',\n    'nytimes.com': 'The New York Times',\n    'wired.com': 'WIRED',\n    'nature.com': 'Nature',\n    'hbr.org': 'Harvard Business Review',\n    'mckinsey.com': 'McKinsey & Company',\n    'statista.com': 'Statista',\n    'github.com': 'GitHub',\n    'dbedt.hawaii.gov': 'DBEDT Hawaii',\n    'hawaii.gov': 'State of Hawaii',\n    'staradvertiser.com': 'Honolulu Star-Advertiser',\n    'hawaiibusiness.com': 'Hawaii Business Magazine'\n  };\n\n  let hostname = '';\n  try {\n    hostname = new URL(url).hostname.replace(/^www\\./, '');\n  } catch (e) {}\n\n  const isGeneric = !title || /^(link|source|url|website|reference|ref|click here|here|article|view|study|https?)/i.test(title);\n\n  if (isGeneric && hostname) {\n    for (const [dom, name] of Object.entries(domainMap)) {\n      if (hostname.includes(dom)) return name;\n    }\n    const base = hostname.split('.')[0];\n    return base.charAt(0).toUpperCase() + base.slice(1);\n  }\n\n  title = title.replace(/^\\[+/, '').replace(/\\]+$/, '').trim();\n  if (title.length > 85) {\n    title = title.slice(0, 82) + '...';\n  }\n\n  return title || 'Authoritative Source';\n}\n\n// 1. Author from LLM Params node\nlet author = 'Zumify Team';\ntry {\n  const llmNode = $('LLM Params').first()?.json || {};\n  if (llmNode.author && typeof llmNode.author === 'string' && llmNode.author.trim()) {\n    author = cleanText(llmNode.author.trim());\n  }\n} catch (e) {}\n\n// 2. SEO Description from Collect SEO Description\nlet description = '';\ntry {\n  const descNode = $('Collect SEO Description').first()?.json || $('Collect SEO Description').all()[0]?.json || {};\n  let rawDesc = descNode.output || descNode.text || descNode.message?.content || descNode.response || '';\n  rawDesc = rawDesc.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n  rawDesc = rawDesc.replace(/^[\"']|[\"']$/g, '').trim();\n  description = cleanText(rawDesc);\n} catch (e) {}\n\n// 3. Cleaned Title & Introduction from Remove In-Text Citations node\nlet title = '';\nlet introduction = '';\nlet cleanedSectionsData = [];\nlet takeaways = '';\n\ntry {\n  const cleanData = $('Remove In-Text Citations').first()?.json || items[0]?.json || {};\n  title = cleanText(stripInTextCitations(cleanData.cleanTitle || $('Combine Article').first()?.json?.title || 'Article'));\n  introduction = cleanText(stripInTextCitations(cleanData.cleanIntro || ''));\n  cleanedSectionsData = cleanData.cleanedSections || [];\n  takeaways = cleanText(stripInTextCitations(cleanData.cleanTakeaways || ''));\n} catch (e) {\n  title = cleanText($('Combine Article').first()?.json?.title || 'Article');\n}\n\n// 4. Slug\nconst slug = title\n  .toLowerCase()\n  .replace(/[^a-z0-9\\s-]/g, '')\n  .trim()\n  .replace(/\\s+/g, '-');\n\n// 5. Category & Color Mapping\nconst categoryColorMap = {\n  'Web Design': 'purple',\n  'Software Development': 'cyan',\n  'Mobile App': 'emerald',\n  'SEO Ranking': 'yellow',\n  'Business Positioning': 'pink',\n  'Hawaii Technology': 'violet',\n  'AI': 'blue',\n  'Growth & Strategy': 'indigo',\n  'Marketing/Advertising': 'orange'\n};\n\nfunction matchCategory(input) {\n  if (!input) return { category: 'Business Positioning', color: 'pink' };\n  const lower = input.toLowerCase();\n  for (const [cat, col] of Object.entries(categoryColorMap)) {\n    if (lower.includes(cat.toLowerCase())) {\n      return { category: cat, color: col };\n    }\n  }\n  return { category: input, color: 'blue' };\n}\n\nlet rawCategoryInput = '';\ntry {\n  const langNode = $('Language').first()?.json || {};\n  rawCategoryInput = langNode['category'] || '';\n} catch (e) {}\nif (!rawCategoryInput) {\n  try {\n    const trigNode = $('Webhook').first()?.json || $('Webhook').all()[0]?.json || $('Form').first()?.json || {};\n    const data = trigNode.body || trigNode.query || trigNode || {};\n    rawCategoryInput = data['Category'] || data['category'] || data['Domain of Expertize'] || data['domain_of_expertize'] || data['Keywords'] || data['keywords'] || '';\n  } catch (e) {}\n}\n\nconst { category, color } = matchCategory(rawCategoryInput);\n\n// 6. Current Date in \"Month Day, Year\" format\nconst now = new Date();\nconst monthNames = [\n  'January', 'February', 'March', 'April', 'May', 'June',\n  'July', 'August', 'September', 'October', 'November', 'December'\n];\nconst publishDate = `${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;\n\n// 7. Extract Images & Ensure Strict Deduplication across Cover and Sections (blank stays blank)\nlet heroImageUrl = '';\nconst sectionImageMap = new Map();\nconst allAvailableImages = [];\nconst assignedPhotoIds = new Set();\nconst assignedUrls = new Set();\n\nfunction isImgAssigned(url) {\n  if (!url) return true;\n  if (assignedUrls.has(url)) return true;\n  const pid = getPhotoId(url);\n  if (pid && assignedPhotoIds.has(pid)) return true;\n  return false;\n}\n\nfunction assignImg(url) {\n  if (!url) return;\n  assignedUrls.add(url);\n  const pid = getPhotoId(url);\n  if (pid) assignedPhotoIds.add(pid);\n}\n\ntry {\n  const imgRecText = $('Collect Image Recommendations').first()?.json?.output || '';\n  const imgSections = imgRecText.split(/###\\s+/);\n  for (const block of imgSections) {\n    if (!block.trim()) continue;\n    const lines = block.trim().split('\\n');\n    const header = lines[0].trim();\n    const match = block.match(/!\\[.*?\\]\\((https?:\\/\\/[^\\s\\)]+)\\)/);\n    if (match) {\n      const url = match[1];\n      allAvailableImages.push({ header, url });\n      if (/cover|hero/i.test(header) && !heroImageUrl) {\n        heroImageUrl = url;\n      } else {\n        sectionImageMap.set(header.toLowerCase(), url);\n        sectionImageMap.set(header.toLowerCase().replace(/[^a-z0-9]/g, ''), url);\n      }\n    }\n  }\n  if (!heroImageUrl && allAvailableImages.length > 0) {\n    heroImageUrl = allAvailableImages[0].url;\n  }\n} catch (e) {}\n\nif (heroImageUrl) {\n  assignImg(heroImageUrl);\n}\n\n// 8. Body Sections (Guaranteed clean content without raw in-text URLs, blank image if unsplash blank)\nconst sections = [];\nconst seenSectionTitles = new Set();\n\nfor (let idx = 0; idx < cleanedSectionsData.length; idx++) {\n  const sItem = cleanedSectionsData[idx];\n  const sTitle = cleanText(stripInTextCitations(sItem.title || `Section ${idx + 1}`));\n  const sContent = cleanText(stripInTextCitations(sItem.content || ''));\n\n  const normTitle = sTitle.toLowerCase().replace(/[^a-z0-9]/g, '');\n  if (normTitle && seenSectionTitles.has(normTitle)) continue;\n  if (normTitle) seenSectionTitles.add(normTitle);\n\n  // Match section image - if no image found, keep blank \"\"\n  let sImageCandidate = sectionImageMap.get(sTitle.toLowerCase()) || \n                       sectionImageMap.get(normTitle) || \n                       '';\n\n  let chosenSectionImg = '';\n  if (sImageCandidate && !isImgAssigned(sImageCandidate)) {\n    chosenSectionImg = sImageCandidate;\n  } else if (allAvailableImages.length > 0) {\n    const unusedCandidate = allAvailableImages.find(img => !isImgAssigned(img.url));\n    if (unusedCandidate) {\n      chosenSectionImg = unusedCandidate.url;\n    }\n  }\n\n  if (chosenSectionImg) {\n    assignImg(chosenSectionImg);\n  }\n\n  sections.push({\n    title: sTitle,\n    content: sContent,\n    image: chosenSectionImg || \"\"\n  });\n}\n\n// 9. Sources (Extracted from citations, formatted with clean consistent titles, max 15)\nconst sources = [];\nconst seenUrls = new Set();\n\nfunction extractSources(text) {\n  if (!text || typeof text !== 'string') return;\n  \n  // A. Markdown links: [Title](url)\n  const linkRegex = /\\[([^\\]]+)\\]\\((https?:\\/\\/[^\\)]+)\\)/g;\n  let match;\n  while ((match = linkRegex.exec(text)) !== null) {\n    if (sources.length >= 15) return;\n    const rawT = match[1].trim();\n    const sUrl = match[2].trim();\n    if (!sUrl.includes('unsplash.com') && !seenUrls.has(sUrl)) {\n      seenUrls.add(sUrl);\n      const cleanT = formatSourceTitle(rawT, sUrl);\n      sources.push({ title: cleanT, url: sUrl });\n    }\n  }\n\n  // B. Raw URLs in text / parentheses: (https://...)\n  const rawUrlRegex = /(?:https?:\\/\\/[^\\s\\)\\]]+)/g;\n  while ((match = rawUrlRegex.exec(text)) !== null) {\n    if (sources.length >= 15) return;\n    const sUrl = match[0].replace(/[.,;:!?]+$/, '').trim();\n    if (!sUrl.includes('unsplash.com') && !seenUrls.has(sUrl)) {\n      seenUrls.add(sUrl);\n      const cleanT = formatSourceTitle('', sUrl);\n      sources.push({ title: cleanT, url: sUrl });\n    }\n  }\n}\n\ntry {\n  // 1. Initial research citations\n  extractSources($('Collect Citations').first()?.json?.output || '');\n  // 2. Any additional sources cited in final article / sections\n  if (sources.length < 15) {\n    extractSources($('Combine Article').first()?.json?.article || '');\n  }\n  // 3. Any additional sources in aggregated sections\n  if (sources.length < 15) {\n    const rawSecs = $('Aggregate Sections').first()?.json?.data || [];\n    for (const sec of rawSecs) {\n      if (sources.length >= 15) break;\n      extractSources(sec.output || '');\n    }\n  }\n} catch (e) {}\n\nconst finalSources = sources.slice(0, 15);\n\n// 10. Reading Estimation\nconst fullWords = [\n  title,\n  description,\n  introduction,\n  ...sections.map(s => s.title + ' ' + s.content),\n  takeaways\n].join(' ').trim().split(/\\s+/).filter(Boolean);\n\nconst wordCount = fullWords.length;\nconst readingEstimation = Math.max(1, Math.ceil(wordCount / 200));\n\n// Assemble JSON object\nconst articleJson = {\n  slug,\n  title,\n  description,\n  introduction,\n  category,\n  author,\n  publishDate,\n  readingEstimation,\n  color,\n  image: heroImageUrl || \"\",\n  takeaways,\n  sections,\n  sources: finalSources\n};\n\nconst jsonString = JSON.stringify(articleJson, null, 2);\n\nlet fullMarkdown = '';\ntry {\n  fullMarkdown = $('Combine Article').first()?.json?.article || '';\n} catch (e) {}\n\nconst nodesExecuted = [\n  \"Webhook Trigger\",\n  \"Language & Settings\",\n  \"LLM Parameters\",\n  \"Keyword Research & Expansion\",\n  \"Article Search\",\n  \"Collect Articles\",\n  \"Analyze & Outline Generation\",\n  \"Generate Title & Introduction\",\n  \"Generate Body Sections\",\n  \"Generate Conclusion\",\n  \"Generate Image Recommendations\",\n  \"Search Images\",\n  \"Generate SEO Description\",\n  \"Combine Markdown Article\",\n  \"Build Clean JSON Article\",\n  \"Respond to Webhook\"\n];\n\nconst responseData = {\n  step: \"Article Generation Complete\",\n  result: `# ${title}\\n\\n${description}\\n\\n${introduction}`,\n  title: title,\n  slug: slug,\n  description: description,\n  category: category,\n  author: author,\n  publishDate: publishDate,\n  image: heroImageUrl || \"\",\n  articleJson: articleJson,\n  markdown: fullMarkdown,\n  nodesExecuted: nodesExecuted,\n  generatedAt: new Date().toISOString()\n};\n\nreturn [{\n  json: {\n    slug,\n    title,\n    articleJson,\n    markdown: fullMarkdown,\n    jsonOutput: jsonString,\n    data: responseData\n  }\n}];"
+      },
+      "id": "build-json-art-1787295914732",
+      "name": "Build JSON Article",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3424,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "jsonOutput",
+        "options": {
+          "fileName": "={{ $json.slug }}.json"
+        }
+      },
+      "id": "json-file-1787295914732",
+      "name": "JSON File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        3600,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Node: Prepare Image Queries\n// Purpose: Produces clean, focused 5-word search queries for Unsplash (Cover/Hero + each section)\n\nconst items = $input.all();\nconst run = items[0]?.json || {};\n\nlet rawText = '';\nif (run?.message?.content) {\n  rawText = run.message.content;\n} else if (run?.response) {\n  rawText = run.response;\n} else if (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  rawText = run.candidates[0].content.parts[0].text;\n} else if (typeof run.output === 'string') {\n  rawText = run.output;\n} else if (run.text) {\n  rawText = run.text;\n}\n\n// Remove thinking tags if present\nrawText = rawText.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n\n// Simplifier function to guarantee clean, focused 5-word queries for Unsplash\nfunction simplifyQuery(rawQuery, fallbackContext) {\n  if (!rawQuery) return (fallbackContext || 'business technology').slice(0, 40);\n\n  let q = rawQuery\n    .replace(/^[\\\"']+|[\\\"']+$/g, '')\n    .replace(/^(photo|image|picture|photograph|stock photo|shot|view)\\s+of\\s+/i, '')\n    .replace(/\\b(a|an|the|in|on|at|with|and|or|for|of|by|to|while|during|into)\\b/gi, ' ')\n    .replace(/\\b(relaxed|cozy|beautiful|stunning|ultra|hyper|high quality|accessible|detailed|genuine|very)\\b/gi, ' ')\n    .replace(/[^\\w\\s-]/gi, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  const words = q.split(/\\s+/).filter(Boolean);\n  if (words.length > 5) {\n    q = words.slice(0, 5).join(' ');\n  }\n\n  return q.toLowerCase() || (fallbackContext || 'business technology').slice(0, 40);\n}\n\n// Try to parse JSON query list from LLM recommendations\nlet llmImagePlan = [];\ntry {\n  const jsonMatch = rawText.match(/\\[[\\s\\S]*\\]/) || rawText.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) {\n    const parsed = JSON.parse(jsonMatch[0]);\n    llmImagePlan = Array.isArray(parsed) ? parsed : (parsed.images || parsed.queries || [parsed]);\n  }\n} catch (e) {\n  const lines = rawText.split('\\n');\n  let currentSection = 'Featured Image';\n  for (const line of lines) {\n    if (line.startsWith('#')) {\n      currentSection = line.replace(/^[#\\s]+/, '').trim();\n    } else if (line.trim().length > 3) {\n      const q = line.replace(/^[-*\\d.)\\s]+/, '').trim();\n      llmImagePlan.push({ section: currentSection, query: q, alt: q });\n    }\n  }\n}\n\n// Map LLM queries by normalized section title\nconst llmQueryMap = new Map();\nlet heroQuery = null;\n\nfor (const item of (llmImagePlan || [])) {\n  if (!item) continue;\n  const secName = (item.section || '').trim();\n  const q = (item.query || '').trim();\n  const alt = (item.alt || q || secName).trim();\n  if (!q) continue;\n\n  const norm = secName.toLowerCase().replace(/[^a-z0-9]/g, '');\n  if (/cover|hero/i.test(secName)) {\n    if (!heroQuery) heroQuery = { section: 'Cover / Hero Image', query: simplifyQuery(q, 'cover hero'), alt: alt || 'Cover Image' };\n  } else if (norm) {\n    if (!llmQueryMap.has(norm)) {\n      llmQueryMap.set(norm, { section: secName, query: simplifyQuery(q, secName), alt });\n    }\n  }\n}\n\n// Get actual article title and category for fallback keywords\nlet articleTitle = '';\ntry {\n  articleTitle = $('Collect Title and Intro').first()?.json?.output?.split('\\n')?.[0]?.replace(/^#\\s*/, '') || '';\n} catch (e) {}\n\nlet category = '';\ntry {\n  category = $('Language').first()?.json?.category || $('Webhook').first()?.json?.body?.Category || '';\n} catch (e) {}\n\nconst defaultTopic = simplifyQuery(category + ' ' + articleTitle, 'technology business');\n\nif (!heroQuery) {\n  heroQuery = {\n    section: 'Cover / Hero Image',\n    query: defaultTopic,\n    alt: articleTitle || 'Article Cover Image'\n  };\n}\n\n// Extract ALL actual sections from Aggregate Sections\nconst rawSections = $('Aggregate Sections').first()?.json?.data || [];\nconst actualSections = [];\nconst seenSecTitles = new Set();\n\nfor (let i = 0; i < rawSections.length; i++) {\n  const secText = (rawSections[i]?.output || '').trim();\n  if (!secText) continue;\n  const firstLine = secText.split('\\n')[0].trim();\n  const secTitle = firstLine.replace(/^#+\\s*/, '').trim() || `Section ${i + 1}`;\n  const normTitle = secTitle.toLowerCase().replace(/[^a-z0-9]/g, '');\n\n  if (normTitle && seenSecTitles.has(normTitle)) continue;\n  if (normTitle) seenSecTitles.add(normTitle);\n\n  actualSections.push({\n    title: secTitle,\n    normTitle: normTitle\n  });\n}\n\n// Build final 5-word query plan: Cover + EVERY actual section\nconst finalPlan = [];\nconst seenQueries = new Set();\n\n// 1. Cover / Hero Image\nconst cleanHeroQ = simplifyQuery(heroQuery.query, defaultTopic);\nseenQueries.add(cleanHeroQ.toLowerCase());\nfinalPlan.push({\n  index: 0,\n  section: 'Cover / Hero Image',\n  query: cleanHeroQ,\n  alt: heroQuery.alt || 'Cover Image'\n});\n\n// 2. Every actual section\nfor (let i = 0; i < actualSections.length; i++) {\n  const { title, normTitle } = actualSections[i];\n  const matched = llmQueryMap.get(normTitle);\n\n  let rawQ = matched?.query || simplifyQuery(title, category);\n  let cleanQ = simplifyQuery(rawQ, title);\n\n  // If query is identical to another query, diversify with section keywords\n  if (seenQueries.has(cleanQ.toLowerCase())) {\n    cleanQ = simplifyQuery(title + ' ' + (i + 1), category);\n  }\n  seenQueries.add(cleanQ.toLowerCase());\n\n  finalPlan.push({\n    index: finalPlan.length,\n    section: title,\n    query: cleanQ,\n    alt: matched?.alt || `${title} illustrative photo`\n  });\n}\n\nreturn finalPlan.map(item => ({ json: item }));"
+      },
+      "id": "node-prep-image-queries-yF7_KBvc",
+      "name": "Prepare Image Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.unsplash.com/search/photos?query={{ encodeURIComponent($json.query) }}&per_page=15&orientation=landscape",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept-Version",
+              "value": "v1"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "node-search-unsplash-yF7_KBvc",
+      "name": "Search Unsplash Images",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2352,
+        2080
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "BH4v13xF7kWkqT9Z",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($('Build JSON Article').item.json.data || $('Build JSON Article').item.json.articleJson || $('Build JSON Article').item.json) }}",
+        "options": {}
+      },
+      "id": "respond-to-webhook-yF7_KBvc1CZZvXjTgI4Fs",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3840,
+        2288
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "S1": {
+      "main": [
+        [
+          {
+            "node": "S2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S2": {
+      "main": [
+        [
+          {
+            "node": "S3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S3": {
+      "main": [
+        [
+          {
+            "node": "Set Outline Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "S4": {
+      "main": [
+        [
+          {
+            "node": "Section Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Language",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Language": {
+      "main": [
+        [
+          {
+            "node": "LLM Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Result Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Params": {
+      "main": [
+        [
+          {
+            "node": "Generate Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web Search": {
+      "main": [
+        [
+          {
+            "node": "SearchResult",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Section": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SearchResult": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Draft Outline": {
+      "main": [
+        [
+          {
+            "node": "Collect Outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Result Prompt": {
+      "main": [
+        [
+          {
+            "node": "Search Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Queries": {
+      "main": [
+        [
+          {
+            "node": "Prepare Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Section": {
+      "main": [
+        [
+          {
+            "node": "Collect Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Prompt": {
+      "main": [
+        [
+          {
+            "node": "Web Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Summary": {
+      "main": [
+        [
+          {
+            "node": "Collect Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Section Prompt": {
+      "main": [
+        [
+          {
+            "node": "Write Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sections": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Prompt": {
+      "main": [
+        [
+          {
+            "node": "Analyze Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Section": {
+      "main": [
+        [
+          {
+            "node": "Collect Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Outline": {
+      "main": [
+        [
+          {
+            "node": "S4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Queries": {
+      "main": [
+        [
+          {
+            "node": "Convert to Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Section": {
+      "main": [
+        [
+          {
+            "node": "Next Section",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Summary": {
+      "main": [
+        [
+          {
+            "node": "Section Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Article": {
+      "main": [
+        [
+          {
+            "node": "Markdown File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Generate SEO Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Sections",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Analysis Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Articles": {
+      "main": [
+        [
+          {
+            "node": "Collect Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Section Prompts": {
+      "main": [
+        [
+          {
+            "node": "Separate Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Articles": {
+      "main": [
+        [
+          {
+            "node": "Collect Outlines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Analysis": {
+      "main": [
+        [
+          {
+            "node": "Generate Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Articles": {
+      "main": [
+        [
+          {
+            "node": "Analyze Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Keywords": {
+      "main": [
+        [
+          {
+            "node": "Search Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Outlines": {
+      "main": [
+        [
+          {
+            "node": "Search Citations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to Array": {
+      "main": [
+        [
+          {
+            "node": "Split Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Queries": {
+      "main": [
+        [
+          {
+            "node": "Collect Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Citations": {
+      "main": [
+        [
+          {
+            "node": "Collect Citations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Citations": {
+      "main": [
+        [
+          {
+            "node": "S1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Keywords": {
+      "main": [
+        [
+          {
+            "node": "Collect Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separate Sections": {
+      "main": [
+        [
+          {
+            "node": "Split Sections",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Sections": {
+      "main": [
+        [
+          {
+            "node": "Write Title and Intro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Outline Prompt": {
+      "main": [
+        [
+          {
+            "node": "Draft Outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Title and Intro": {
+      "main": [
+        [
+          {
+            "node": "Collect Title and Intro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Title and Intro": {
+      "main": [
+        [
+          {
+            "node": "Write Conclusion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Conclusion": {
+      "main": [
+        [
+          {
+            "node": "Collect Conclusion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Conclusion": {
+      "main": [
+        [
+          {
+            "node": "Generate Image Recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Image Recommendations": {
+      "main": [
+        [
+          {
+            "node": "Prepare Image Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Image Recommendations": {
+      "main": [
+        [
+          {
+            "node": "Combine Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SEO Description": {
+      "main": [
+        [
+          {
+            "node": "Collect SEO Description",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect SEO Description": {
+      "main": [
+        [
+          {
+            "node": "Remove In-Text Citations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build JSON Article": {
+      "main": [
+        [
+          {
+            "node": "JSON File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove In-Text Citations": {
+      "main": [
+        [
+          {
+            "node": "Build JSON Article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Image Queries": {
+      "main": [
+        [
+          {
+            "node": "Search Unsplash Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Unsplash Images": {
+      "main": [
+        [
+          {
+            "node": "Collect Image Recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON File": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "2db75c33-95bb-43b9-b8bf-25c7dd2c8200",
+  "meta": {
+    "instanceId": "90087e003cd26582a55ba68d526b7273541408705786994dfdf60fde936b2c82"
+  },
+  "nodeGroups": [],
+  "id": "yF7_KBvc1CZZvXjTgI4Fs",
+  "tags": []
+}

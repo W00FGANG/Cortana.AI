@@ -1,10 +1,13 @@
 import { Filter, Search } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatTimeAgo } from "@/lib/agent-ui";
+import { updateStalledExecutions } from "@/lib/stalled-executions";
 
 export const dynamic = "force-dynamic";
 
 export default async function OperationsPage() {
+  await updateStalledExecutions();
+
   const activities = await prisma.activity.findMany({
     include: {
       agent: true,
@@ -84,6 +87,7 @@ export default async function OperationsPage() {
                       <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium border ${
                         log.status === 'Success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                         log.status === 'Failed' ? 'bg-red-50 text-red-700 border-red-200' :
+                        log.status === 'Stalled' ? 'bg-orange-50 text-orange-700 border-orange-200' :
                         'bg-blue-50 text-blue-700 border-blue-200'
                       }`}>
                         {log.status}

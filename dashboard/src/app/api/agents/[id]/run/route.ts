@@ -155,14 +155,62 @@ async function executeWorkflowInBackground({
             responseData.output)));
 
     if (isDirectCompleted) {
+      // Unwrap clean article JSON if responseData is wrapped
+      let cleanArticle = responseData;
+      if (responseData && typeof responseData === "object") {
+        if (responseData.articleJson && typeof responseData.articleJson === "object") {
+          cleanArticle = responseData.articleJson;
+        } else if (typeof responseData.articleJson === "string") {
+          try {
+            cleanArticle = JSON.parse(responseData.articleJson);
+          } catch {}
+        } else if (responseData.data && typeof responseData.data === "object") {
+          if (responseData.data.articleJson && typeof responseData.data.articleJson === "object") {
+            cleanArticle = responseData.data.articleJson;
+          } else if (responseData.data.sections) {
+            cleanArticle = responseData.data;
+          }
+        }
+      }
+
+      // If cleanArticle still has telemetry wrapper fields, clean them
+      if (cleanArticle && typeof cleanArticle === "object") {
+        const {
+          step: _s,
+          result: _r,
+          nodesExecuted: _n,
+          generatedAt: _g,
+          markdown: _m,
+          jsonOutput: _j,
+          data: _d,
+          articleJson: _aj,
+          ...cleanSchema
+        } = cleanArticle;
+
+        if (cleanSchema.sections || cleanSchema.sources || cleanSchema.title || cleanSchema.slug) {
+          const ordered: Record<string, any> = {};
+          const keyOrder = [
+            "slug", "title", "description", "introduction", "category", "author",
+            "publishDate", "readingEstimation", "color", "image", "sections", "takeaways", "sources"
+          ];
+          for (const k of keyOrder) {
+            if (cleanSchema[k] !== undefined) ordered[k] = cleanSchema[k];
+          }
+          for (const k of Object.keys(cleanSchema)) {
+            if (!(k in ordered)) ordered[k] = cleanSchema[k];
+          }
+          cleanArticle = ordered;
+        }
+      }
+
       const resultText =
-        typeof responseData === "object"
-          ? JSON.stringify(responseData, null, 2)
-          : resText;
+        typeof cleanArticle === "object"
+          ? JSON.stringify(cleanArticle, null, 2)
+          : (typeof responseData === "object" ? JSON.stringify(responseData, null, 2) : resText);
 
       const stepName = responseData?.step || "Workflow Completed";
       const nodesList = Array.isArray(responseData?.nodesExecuted) ? responseData.nodesExecuted : null;
-      const articleTitle = responseData?.title || (keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
+      const articleTitle = cleanArticle?.title || responseData?.title || (keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
 
       await prisma.task.update({
         where: { id: taskId },

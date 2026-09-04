@@ -8,10 +8,13 @@ import {
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
+import { updateStalledExecutions } from "@/lib/stalled-executions";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  await updateStalledExecutions();
+
   // 1. Fetch live metrics from Supabase
   const [
     activeAgentsCount,

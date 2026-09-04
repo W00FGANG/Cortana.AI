@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Clock, Activity as ActivityIcon, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
+import { updateStalledExecutions } from "@/lib/stalled-executions";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
@@ -16,6 +17,8 @@ interface PageProps {
 
 export default async function AgentProfilePage({ params }: PageProps) {
   const { id } = await params;
+
+  await updateStalledExecutions();
 
   const agent = await prisma.agent.findFirst({
     where: {
@@ -237,7 +240,8 @@ export default async function AgentProfilePage({ params }: PageProps) {
                   <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium border ${currentTask.status === "Running" ? "bg-blue-50 text-blue-700 border-blue-200 animate-pulse" :
                       currentTask.status === "Needs Approval" ? "bg-amber-50 text-amber-700 border-amber-200" :
                         currentTask.status === "Completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                          "bg-slate-100 text-slate-700 border-slate-200"
+                          currentTask.status === "Stalled" ? "bg-orange-50 text-orange-700 border-orange-200" :
+                            "bg-slate-100 text-slate-700 border-slate-200"
                     }`}>
                     {currentTask.status}
                   </span>
@@ -383,7 +387,8 @@ export default async function AgentProfilePage({ params }: PageProps) {
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${run.status === "Completed" ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400" :
                               run.status === "Running" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 animate-pulse" :
-                                "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300"
+                                run.status === "Stalled" ? "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-400" :
+                                  "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300"
                             }`}>
                             {run.status}
                           </span>

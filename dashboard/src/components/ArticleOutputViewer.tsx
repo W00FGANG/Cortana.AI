@@ -24,16 +24,17 @@ function formatArticleObjectToMarkdown(obj: any): string {
     md += `${obj.introduction}\n\n`;
   }
   
-  if (obj.takeaways) {
-    md += `## Key Takeaways\n\n${obj.takeaways}\n\n`;
-  }
-  
   if (Array.isArray(obj.sections)) {
     for (const sec of obj.sections) {
       if (sec.title) md += `## ${sec.title}\n\n`;
       if (sec.image) md += `![${sec.title}](${sec.image})\n\n`;
       if (sec.content) md += `${sec.content}\n\n`;
     }
+  }
+
+  const takeawaysContent = obj.takeaways || obj.conclusion;
+  if (takeawaysContent) {
+    md += `## Key Takeaways & Conclusion\n\n${takeawaysContent}\n\n`;
   }
   
   if (Array.isArray(obj.sources) && obj.sources.length > 0) {
@@ -70,18 +71,82 @@ export function ArticleOutputViewer({ outputData, defaultTitle = "Generated Outp
   try {
     const parsed = typeof outputData === "string" ? JSON.parse(outputData) : outputData;
     if (parsed && typeof parsed === "object") {
-      rawParsedObject = parsed;
-      parsedTitle = parsed.title || parsed.slug || defaultTitle;
-      parsedSlug = (parsed.slug || parsedTitle).toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      // Unwrap clean articleJson if nested in responseData wrapper
+      let targetObj: Record<string, any> = parsed;
+      if (parsed.articleJson && typeof parsed.articleJson === "object") {
+        targetObj = parsed.articleJson;
+      } else if (typeof parsed.articleJson === "string") {
+        try {
+          targetObj = JSON.parse(parsed.articleJson);
+        } catch {}
+      } else if (parsed.data && typeof parsed.data === "object") {
+        if (parsed.data.articleJson && typeof parsed.data.articleJson === "object") {
+          targetObj = parsed.data.articleJson;
+        } else if (parsed.data.sections) {
+          targetObj = parsed.data;
+        }
+      }
+
+      // Strip telemetry wrapper fields (step, result, nodesExecuted, etc.)
+      const {
+        step: _step,
+        result: _result,
+        nodesExecuted: _nodesExecuted,
+        generatedAt: _generatedAt,
+        articleJson: _articleJson,
+        data: _data,
+        jsonOutput: _jsonOutput,
+        markdown: _markdownField,
+        ...cleanSchema
+      } = targetObj;
+
+      const finalArticleObj =
+        cleanSchema.sections || cleanSchema.sources || cleanSchema.title || cleanSchema.slug
+          ? cleanSchema
+          : targetObj;
+
+      // Reorder keys to guarantee takeaways is placed after sections and before sources
+      const orderedObj: Record<string, any> = {};
+      const keyOrder = [
+        "slug",
+        "title",
+        "description",
+        "introduction",
+        "category",
+        "author",
+        "publishDate",
+        "readingEstimation",
+        "color",
+        "image",
+        "sections",
+        "takeaways",
+        "sources"
+      ];
+      for (const k of keyOrder) {
+        if (finalArticleObj[k] !== undefined) {
+          orderedObj[k] = finalArticleObj[k];
+        }
+      }
+      for (const k of Object.keys(finalArticleObj)) {
+        if (!(k in orderedObj)) {
+          orderedObj[k] = finalArticleObj[k];
+        }
+      }
+
+      rawParsedObject = orderedObj;
+      parsedTitle = orderedObj.title || parsed.title || orderedObj.slug || defaultTitle;
+      parsedSlug = (orderedObj.slug || parsed.slug || parsedTitle).toLowerCase().replace(/[^a-z0-9]+/g, "-");
       
-      // Preserve complete JSON structure
-      structuredJsonObject = parsed;
+      // Preserve clean complete JSON structure
+      structuredJsonObject = orderedObj;
 
       // Generate or extract markdown
       if (parsed.markdown && typeof parsed.markdown === "string") {
         markdownContent = parsed.markdown;
+      } else if (targetObj.markdown && typeof targetObj.markdown === "string") {
+        markdownContent = targetObj.markdown;
       } else {
-        markdownContent = formatArticleObjectToMarkdown(parsed);
+        markdownContent = formatArticleObjectToMarkdown(finalArticleObj);
       }
     } else if (typeof parsed === "string") {
       markdownContent = parsed;
@@ -308,19 +373,6 @@ export function ArticleOutputViewer({ outputData, defaultTitle = "Generated Outp
                   </div>
                 )}
 
-                {/* Key Takeaways Callout */}
-                {structuredJsonObject.takeaways && (
-                  <div className="rounded-xl bg-gradient-to-br from-amber-50/70 to-yellow-50/40 border border-amber-200 p-5 space-y-2">
-                    <div className="flex items-center gap-2 font-semibold text-xs uppercase tracking-wider text-amber-900">
-                      <BookOpen className="h-4 w-4 text-amber-600" />
-                      <span>Key Takeaways & Summary</span>
-                    </div>
-                    <div className="text-xs text-amber-950/90 leading-relaxed whitespace-pre-wrap">
-                      {structuredJsonObject.takeaways}
-                    </div>
-                  </div>
-                )}
-
                 {/* Article Sections */}
                 {Array.isArray(structuredJsonObject.sections) && structuredJsonObject.sections.map((section: any, idx: number) => (
                   <section key={idx} className="space-y-3 pt-4">
@@ -342,6 +394,19 @@ export function ArticleOutputViewer({ outputData, defaultTitle = "Generated Outp
                     </div>
                   </section>
                 ))}
+
+                {/* Key Takeaways & Conclusion Callout */}
+                {(structuredJsonObject.takeaways || structuredJsonObject.conclusion) && (
+                  <div className="rounded-xl bg-gradient-to-br from-amber-50/70 to-yellow-50/40 border border-amber-200 p-5 space-y-2 mt-8">
+                    <div className="flex items-center gap-2 font-semibold text-xs uppercase tracking-wider text-amber-900">
+                      <BookOpen className="h-4 w-4 text-amber-600" />
+                      <span>Key Takeaways & Conclusion</span>
+                    </div>
+                    <div className="text-xs text-amber-950/90 leading-relaxed whitespace-pre-wrap">
+                      {structuredJsonObject.takeaways || structuredJsonObject.conclusion}
+                    </div>
+                  </div>
+                )}
 
                 {/* Authoritative References */}
                 {Array.isArray(structuredJsonObject.sources) && structuredJsonObject.sources.length > 0 && (

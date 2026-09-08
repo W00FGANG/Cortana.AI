@@ -6,6 +6,7 @@ import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 import { updateStalledExecutions } from "@/lib/stalled-executions";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
+import { JsonFileOutputViewer } from "@/components/JsonFileOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
 import { AgentChatBubble } from "@/components/AgentChatBubble";
 
@@ -42,6 +43,9 @@ export default async function AgentProfilePage({ params }: PageProps) {
         orderBy: { createdAt: "desc" },
         take: 12,
       },
+      approvals: {
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -63,10 +67,16 @@ export default async function AgentProfilePage({ params }: PageProps) {
     agent.role.toLowerCase().includes("article") ||
     agent.n8nWorkflowId === "1DElnhi9xf3iwYcp";
 
+  const isEmailAgent =
+    agent.name.toLowerCase().includes("kainoa") ||
+    agent.role.toLowerCase().includes("outreach") ||
+    agent.role.toLowerCase().includes("email") ||
+    agent.n8nWorkflowId === "Al3atlOTCSx8ZNgN";
+
   const style = getAgentStyle(agent.name);
   const Icon = style.icon;
   const isRunning = agent.tasks.some((t) => t.status === "Running") || agent.runs.some((r) => r.status === "Running");
-  const currentTask = agent.tasks.find((t) => t.status === "Running" || t.status === "Pending") || agent.tasks[0];
+  const currentTask = agent.tasks.find((t) => t.status === "Running" || t.status === "Needs Approval");
   const completedTasks = agent.tasks.filter((t) => t.status === "Completed");
 
   let chatTheme = {
@@ -124,6 +134,78 @@ export default async function AgentProfilePage({ params }: PageProps) {
   const completedTaskWithResult = agent.tasks.find((t) => t.status === "Completed" && t.result) || agent.tasks.find((t) => t.result);
   const completedRunWithOutput = agent.runs.find((r) => r.status === "Completed" && r.output) || agent.runs.find((r) => r.output);
   const latestArticleOutput = completedTaskWithResult?.result || completedRunWithOutput?.output;
+
+  // For Kainoa, strictly only show the drafting step and the approval/declination step
+  const displayedActivities = isEmailAgent
+    ? agent.activities.filter((act) => {
+        const a = act.action.toLowerCase();
+        return a.includes("draft") || a.includes("approv") || a.includes("declin");
+      })
+    : agent.activities;
+
+  // For Email Agents (Kainoa): Extract workflow JSON output when completed
+  let emailWorkflowJsonOutput: string | null = null;
+  if (isEmailAgent) {
+    // 1. Look for output from the latest run or task containing JSON output
+    const latestJsonRun = agent.runs.find(
+      (r) => r.output && (r.output.trim().startsWith("[") || r.output.trim().startsWith("{"))
+    );
+    const latestJsonTask = agent.tasks.find(
+      (t) => t.result && (t.result.trim().startsWith("[") || t.result.trim().startsWith("{"))
+    );
+    const rawOutput = latestJsonRun?.output || latestJsonTask?.result;
+
+    if (rawOutput) {
+      try {
+        const parsed = JSON.parse(rawOutput);
+        if (Array.isArray(parsed)) {
+          // Normalize to pure array of email strings: ["email@example.com"]
+          const stringArray = parsed
+            .map((item) =>
+              typeof item === "string" ? item : (item.email || item.recipientEmail || String(item))
+            )
+            .filter(Boolean);
+          emailWorkflowJsonOutput = JSON.stringify(stringArray, null, 2);
+        } else if (parsed && typeof parsed === "object") {
+          if (parsed.sentEmails && Array.isArray(parsed.sentEmails)) {
+            const stringArray = parsed.sentEmails
+              .map((item: any) =>
+                typeof item === "string" ? item : (item.email || item.recipientEmail || String(item))
+              )
+              .filter(Boolean);
+            emailWorkflowJsonOutput = JSON.stringify(stringArray, null, 2);
+          } else if (parsed.emails && Array.isArray(parsed.emails)) {
+            const stringArray = parsed.emails
+              .map((item: any) =>
+                typeof item === "string" ? item : (item.email || item.recipientEmail || String(item))
+              )
+              .filter(Boolean);
+            emailWorkflowJsonOutput = JSON.stringify(stringArray, null, 2);
+          } else {
+            emailWorkflowJsonOutput = JSON.stringify(parsed, null, 2);
+          }
+        }
+      } catch {}
+    }
+
+    // 2. If no direct JSON output, check approved approvals strictly scoped to the current/latest task
+    const targetTask = currentTask || agent.tasks[0];
+    if (!emailWorkflowJsonOutput && targetTask) {
+      const taskApprovedEmails = agent.approvals
+        ?.filter((a) => a.taskId === targetTask.id && a.status === "Approved")
+        .map((a) => {
+          const match =
+            a.content.match(/<([^>]+@[^>]+)>/) ||
+            a.content.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+          return match ? match[1] : a.title;
+        })
+        .filter(Boolean);
+
+      if (taskApprovedEmails && taskApprovedEmails.length > 0) {
+        emailWorkflowJsonOutput = JSON.stringify(taskApprovedEmails, null, 2);
+      }
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -201,7 +283,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
           agentAvatar={agent.avatar}
           agentIcon={<Icon className="h-5 w-5" />}
           currentTaskTitle={currentTask?.title}
-          recentActivities={agent.activities?.slice(0, 3).map(a => a.action) || []}
+          recentActivities={displayedActivities.slice(0, 3).map(a => a.action) || []}
           theme={{
             bg: chatTheme.bg,
             tail: chatTheme.tail,
@@ -217,8 +299,8 @@ export default async function AgentProfilePage({ params }: PageProps) {
         <div className="lg:col-span-2 space-y-8">
 
           {/* Interactive Trigger Panel */}
-          {isArticleGenerator && (
-            <AgentRunForm agentId={agent.id} agentName={agent.name} />
+          {(isArticleGenerator || isEmailAgent) && (
+            <AgentRunForm agentId={agent.id} agentName={agent.name} isEmailAgent={isEmailAgent} />
           )}
 
           {/* Current Active Task & Live Step Updates */}
@@ -262,20 +344,20 @@ export default async function AgentProfilePage({ params }: PageProps) {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-slate-500 italic">No tasks currently queued.</p>
+              <p className="text-sm text-slate-500 italic">No tasks happening at the moment.</p>
             )}
 
             {/* Step Updates Stream from Activity Logs */}
-            {agent.activities && agent.activities.length > 0 && (
+            {displayedActivities && displayedActivities.length > 0 && (
               <div className="mt-6 pt-6 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2 mb-3">
                   <ActivityIcon className="h-4 w-4 text-slate-400 dark:text-slate-500" />
                   <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Step Execution Logs ({agent.activities.length})
+                    Step Execution Logs ({displayedActivities.length})
                   </h3>
                 </div>
                 <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                  {agent.activities.map((act) => {
+                  {displayedActivities.map((act) => {
                     const isActActive = act.status === "Running" && isRunning;
                     const isActFailed = act.status === "Failed";
                     const isActSuccess = !isActActive && !isActFailed;
@@ -335,11 +417,20 @@ export default async function AgentProfilePage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Interactive Output Viewer (Markdown & JSON Download) */}
-          {latestArticleOutput && (
+          {/* Output Section: Article Viewer for Article Generator (Harper), or Email Sent List for Email Agent (Kainoa) */}
+          {!isEmailAgent && latestArticleOutput && (
             <ArticleOutputViewer
               outputData={latestArticleOutput}
               defaultTitle={completedTaskWithResult?.title || "Research Article Output"}
+            />
+          )}
+
+          {/* Workflow JSON Output File (when completed) */}
+          {isEmailAgent && emailWorkflowJsonOutput && (
+            <JsonFileOutputViewer
+              outputData={emailWorkflowJsonOutput}
+              fileName="sent-emails.json"
+              title="Workflow Output"
             />
           )}
 

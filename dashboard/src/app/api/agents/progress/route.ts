@@ -50,6 +50,14 @@ export async function POST(request: Request) {
       ? JSON.stringify(articleJson, null, 2) 
       : (typeof jsonOutput === "string" ? jsonOutput : (jsonOutput ? JSON.stringify(jsonOutput, null, 2) : ""));
 
+    // 2. Resolve agent type
+    const isKainoa =
+      agent.name.toLowerCase().includes("kainoa") ||
+      agent.role.toLowerCase().includes("outreach") ||
+      agent.role.toLowerCase().includes("email");
+
+    const isDraftingStep = step?.toLowerCase().includes("draft");
+
     let combinedOutput = output || `Step: ${step}`;
     if (finalMarkdown || finalJson) {
       combinedOutput = JSON.stringify({
@@ -59,6 +67,22 @@ export async function POST(request: Request) {
         jsonOutput: finalJson,
         completedAt: new Date().toISOString(),
       });
+    } else if (body.sentEmails) {
+      const list = Array.isArray(body.sentEmails) ? body.sentEmails : [body.sentEmails];
+      const emails = list.map((item: any) =>
+        typeof item === "string" ? item : (item.email || item.recipientEmail || String(item))
+      );
+      combinedOutput = JSON.stringify(emails, null, 2);
+    } else if (isKainoa && output) {
+      try {
+        const parsed = JSON.parse(output);
+        if (Array.isArray(parsed)) {
+          const emails = parsed.map((item: any) =>
+            typeof item === "string" ? item : (item.email || item.recipientEmail || String(item))
+          );
+          combinedOutput = JSON.stringify(emails, null, 2);
+        }
+      } catch {}
     }
 
     // 2. If finished, resolve previous Running activities for this agent
@@ -75,18 +99,36 @@ export async function POST(request: Request) {
     }
 
     // Log step execution in Supabase Activity stream
-    const activity = await prisma.activity.create({
-      data: {
-        agentId: agent.id,
-        action: status === "Completed" 
-          ? `Completed: ${step || 'Article Generation'}` 
-          : status === "Failed" 
-          ? `Failed step: ${step}` 
-          : `Executing: ${step}`,
-        description: description || (title ? `Generated "${title}"` : `Executing: ${step}`),
-        status: activityStatus,
-      },
-    });
+    // For Kainoa, strictly only log the drafting step (the approval step is recorded upon review)
+    let activity = null;
+    if (!isKainoa) {
+      activity = await prisma.activity.create({
+        data: {
+          agentId: agent.id,
+          action: status === "Completed" 
+            ? `Completed: ${step || 'Article Generation'}` 
+            : status === "Failed" 
+            ? `Failed step: ${step}` 
+            : `Executing: ${step}`,
+          description: description || (title ? `Generated "${title}"` : `Executing: ${step}`),
+          status: activityStatus,
+        },
+      });
+    } else if (isDraftingStep) {
+      await prisma.activity.updateMany({
+        where: { agentId: agent.id, status: "Running" },
+        data: { status: "Success" },
+      });
+
+      activity = await prisma.activity.create({
+        data: {
+          agentId: agent.id,
+          action: "Drafting Outreach Email",
+          description: description || "Synthesizing prospect research & generating personalized email via Gemini AI",
+          status: "Running",
+        },
+      });
+    }
 
     // 3. Find active AgentRun to update, or use specified runId
     let run = runId
@@ -137,18 +179,77 @@ export async function POST(request: Request) {
       });
     }
 
-    // 4. If an article was completed, also create an Approval record for convenient review
-    if (status === "Completed" && (finalMarkdown || title)) {
-      const articleTitle = title || articleJson?.title || "Research Article Draft";
+    // 4. If an approval is requested (e.g. from Email Agent or Article Writer)
+    const hasResumeWebhook = Boolean(body.resumeUrl);
+    const isApprovalStep = status === "Needs Approval" || step?.toLowerCase().includes("approval") || hasResumeWebhook;
+
+    if (isApprovalStep) {
+      const recipientEmail = body.recipientEmail || body.email || "";
+      const recipientName = body.recipientName || body.name || "";
+      const emailSubject = body.subject || body.Subject || "";
+      const emailBody = body.body || body.emailBody || body.content || "";
+
+      let approvalContent = finalMarkdown || combinedOutput;
+      if (emailSubject || emailBody || recipientEmail) {
+        approvalContent = `Recipient: ${recipientName} <${recipientEmail}>\nSubject: ${emailSubject}\n\n${emailBody}`;
+      }
+
+      // Embed metadata comment with resumeUrl if present so dashboard action can resume n8n execution
+      if (body.resumeUrl) {
+        const metadataTag = `\n\n<!-- n8n_approval_metadata: ${JSON.stringify({
+          resumeUrl: body.resumeUrl,
+          recipientEmail,
+          recipientName,
+          subject: emailSubject,
+        })} -->`;
+        approvalContent += metadataTag;
+      }
+
+      const approvalTitle = title || (recipientName ? `Send outreach email to ${recipientName} (${recipientEmail})` : "Review Generated Outreach Email");
+
       await prisma.approval.create({
         data: {
           agentId: agent.id,
-          taskId: taskId || run.taskId || null,
-          title: `Approve Publication: ${articleTitle}`,
-          content: finalMarkdown || combinedOutput,
+          taskId: taskId || run?.taskId || null,
+          title: approvalTitle,
+          content: approvalContent,
           status: "Pending",
         },
       });
+
+      // Update associated task status to Needs Approval
+      if (run?.taskId || taskId) {
+        await prisma.task.update({
+          where: { id: (taskId || run?.taskId)! },
+          data: { status: "Needs Approval" },
+        }).catch(() => {});
+      }
+
+      if (isKainoa) {
+        await prisma.activity.updateMany({
+          where: {
+            agentId: agent.id,
+            status: "Running",
+          },
+          data: {
+            status: "Success",
+          },
+        });
+      }
+    } else if (status === "Completed" && (finalMarkdown || title)) {
+      const isHarper = agent.name?.toLowerCase().includes("harper");
+      if (!isHarper) {
+        const articleTitle = title || articleJson?.title || "Research Article Draft";
+        await prisma.approval.create({
+          data: {
+            agentId: agent.id,
+            taskId: taskId || run.taskId || null,
+            title: `Approve Publication: ${articleTitle}`,
+            content: finalMarkdown || combinedOutput,
+            status: "Pending",
+          },
+        });
+      }
     }
 
     return NextResponse.json({
@@ -156,7 +257,7 @@ export async function POST(request: Request) {
       logged: true,
       step,
       status: activityStatus,
-      activityId: activity.id,
+      activityId: activity?.id || null,
       runId: run.id,
     });
   } catch (err: any) {

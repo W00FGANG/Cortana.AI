@@ -27,7 +27,17 @@ export default async function Dashboard() {
     prisma.agent.count({ where: { status: "Active" } }),
     prisma.task.count(),
     prisma.task.count({ where: { status: "Completed" } }),
-    prisma.approval.count({ where: { status: "Pending" } }),
+    prisma.approval.count({
+      where: {
+        status: "Pending",
+        agent: {
+          name: {
+            not: "Harper",
+            mode: "insensitive",
+          },
+        },
+      },
+    }),
     prisma.agent.findMany({
       include: {
         tasks: {
@@ -99,7 +109,7 @@ export default async function Dashboard() {
             {agents.map((agent) => {
               const style = getAgentStyle(agent.name);
               const Icon = style.icon;
-              const currentTask = agent.tasks.find(t => t.status === "Running" || t.status === "Pending") || agent.tasks[0];
+              const currentTask = agent.tasks.find(t => t.status === "Running" || t.status === "Needs Approval");
               const completedCount = agent.tasks.filter(t => t.status === "Completed").length;
 
               return (
@@ -143,7 +153,7 @@ export default async function Dashboard() {
                       <div className="bg-black/30 backdrop-blur-sm rounded-xl p-3 border border-white/10">
                         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Current Task</p>
                         <p className="text-sm text-slate-100 line-clamp-2">
-                          {currentTask ? currentTask.title : "No active task assigned"}
+                          {currentTask ? currentTask.title : "No tasks happening at the moment"}
                         </p>
                       </div>
                       

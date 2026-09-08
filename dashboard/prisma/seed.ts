@@ -23,6 +23,7 @@ async function main() {
       schedule: 'Weekdays — 8:00 AM',
       avatar: '/assets/KainoaProfile.jpg',
       status: 'Active',
+      n8nWorkflowId: 'Al3atlOTCSx8ZNgN',
     },
   });
 
@@ -86,29 +87,6 @@ async function main() {
   console.log('Created 5 Agents (Kai, Maya, Nora, Kent, Harper)');
 
   // 2. Create Tasks
-  const taskKai1 = await prisma.task.create({
-    data: {
-      agentId: kai.id,
-      title: 'Prepare personalized outreach for 5 qualified prospects.',
-      description: 'Review lead profiles and draft tailored cold outreach emails.',
-      status: 'Running',
-      priority: 'High',
-      scheduledFor: new Date(),
-    },
-  });
-
-  const taskKai2 = await prisma.task.create({
-    data: {
-      agentId: kai.id,
-      title: 'Send outreach email to John Doe at Island Tech',
-      description: 'Email proposing modernization and AI workflow integration.',
-      status: 'Needs Approval',
-      priority: 'High',
-      requiresApproval: true,
-      scheduledFor: new Date(),
-    },
-  });
-
   const taskMaya1 = await prisma.task.create({
     data: {
       agentId: maya.id,
@@ -177,14 +155,6 @@ async function main() {
   await prisma.agentRun.createMany({
     data: [
       {
-        agentId: kai.id,
-        taskId: taskKai1.id,
-        status: 'Running',
-        startedAt: new Date(Date.now() - 15 * 60 * 1000),
-        input: 'Research target prospect list from CRM',
-        output: 'Drafting emails for 3/5 prospects...',
-      },
-      {
         agentId: kent.id,
         taskId: taskKent1.id,
         status: 'Completed',
@@ -211,14 +181,6 @@ async function main() {
         input: 'Fetch calendar items and quarterly tax calendar',
         output: '4 items pending review, no immediate blockers.',
       },
-      {
-        agentId: kai.id,
-        status: 'Failed',
-        startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        completedAt: new Date(Date.now() - 23.9 * 60 * 60 * 1000),
-        input: 'Sync contacts from external CRM',
-        error: 'CRM OAuth token expired. Re-authentication required.',
-      },
     ],
   });
 
@@ -227,13 +189,6 @@ async function main() {
   // 4. Create Activity Logs
   await prisma.activity.createMany({
     data: [
-      {
-        agentId: kai.id,
-        action: 'Started sales research task: Prepare outreach for 5 prospects',
-        description: 'Searching company databases and validating emails',
-        status: 'Running',
-        createdAt: new Date(Date.now() - 15 * 60 * 1000),
-      },
       {
         agentId: kent.id,
         action: 'Discovered 10 potential Hawaii business prospects',
@@ -255,30 +210,12 @@ async function main() {
         status: 'Success',
         createdAt: new Date(Date.now() - 170 * 60 * 1000),
       },
-      {
-        agentId: kai.id,
-        action: 'Failed to connect to external CRM API',
-        description: 'OAuth handshake rejected token',
-        status: 'Failed',
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      },
     ],
   });
 
   console.log('Created Activities');
 
   // 5. Create Pending Approvals
-  await prisma.approval.create({
-    data: {
-      agentId: kai.id,
-      taskId: taskKai2.id,
-      title: 'Send follow-up outreach email',
-      content: 'Hi John,\n\nI noticed your company\'s website hasn\'t been updated recently. At Zumify, we specialize in modernizing digital experiences and deploying intelligent AI workflows. Would you be open to a quick 10-minute chat next week to see if there\'s a fit?\n\nBest,\nKai',
-      status: 'Pending',
-      createdAt: new Date(Date.now() - 10 * 60 * 1000),
-    },
-  });
-
   await prisma.approval.create({
     data: {
       agentId: maya.id,

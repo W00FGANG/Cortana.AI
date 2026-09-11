@@ -1,0 +1,544 @@
+{
+  "updatedAt": "2026-09-09T21:56:04.173Z",
+  "createdAt": "2026-02-12T22:48:56.596Z",
+  "id": "Lb8UGs6yiZ71CHvF",
+  "name": "Gmail Follow-up Agent (v11 - Limit 10)",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gmail-followup",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        256,
+        144
+      ],
+      "webhookId": "gmail-followup-webhook-trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "daysInterval": 7,
+              "triggerAtHour": 12
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 500,
+        "filters": {
+          "labelIds": [
+            "SENT"
+          ],
+          "q": "older_than:5d newer_than:30d -label:chats"
+        }
+      },
+      "id": "get-sent-emails",
+      "name": "Get Recent Sent Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        464,
+        304
+      ],
+      "webhookId": "e9f06fb4-a4a7-4ae4-82b6-293dbcfe454b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "yW2fcUK1a3iwnsJP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "get",
+        "threadId": "={{ $json.threadId }}",
+        "options": {}
+      },
+      "id": "get-thread-details",
+      "name": "Get Thread Details",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        864,
+        304
+      ],
+      "webhookId": "1ece0bc5-137a-4d05-91e3-8eaae0060a5e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "yW2fcUK1a3iwnsJP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n    let followUpCount = 0;\n    const seenRecipients = new Set();\n    const MAX_DAILY_FOLLOWUPS = 10;\n    const MAX_FOLLOWUPS_PER_THREAD = 3; // Max follow-ups if prospect never replies\n    \n    // Iterate over ALL input items (threads)\n    const results = $input.all().map(item => {\n        try {\n            const thread = item.json;\n            \n            if (!thread) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        reason: 'Thread data is null or undefined'\n                    }\n                };\n            }\n            \n            const messages = thread.messages || [];\n            \n            if (!Array.isArray(messages) || messages.length === 0) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Thread has no messages'\n                    }\n                };\n            }\n            \n            // Check every message in the thread:\n            // All messages must be from us (SENT). If ANY message is not from us, recipient replied!\n            let hasIncomingReply = false;\n            for (const msg of messages) {\n                let isSentByUs = false;\n                if (msg.labelIds && Array.isArray(msg.labelIds)) {\n                    isSentByUs = msg.labelIds.includes('SENT');\n                } else if (msg.labels && Array.isArray(msg.labels)) {\n                    isSentByUs = msg.labels.some(l => l.name === 'SENT' || l.id === 'SENT');\n                }\n                \n                if (!isSentByUs) {\n                    hasIncomingReply = true;\n                    break;\n                }\n            }\n            \n            // Once they reply once, immediately stop follow-ups\n            if (hasIncomingReply) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Recipient replied to this thread. Follow-up stopped.'\n                    }\n                };\n            }\n            \n            // Thread only contains emails sent by us (initial outreach + any previous follow-ups).\n            // Check if maximum follow-up attempts reached\n            if (messages.length > MAX_FOLLOWUPS_PER_THREAD) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Max follow-up attempts reached for this thread (' + (messages.length - 1) + ' follow-ups sent).'\n                    }\n                };\n            }\n            \n            const firstMessage = messages[0];\n            const lastMessage = messages[messages.length - 1];\n            \n            let recipient = lastMessage.To || firstMessage.To;\n            let subject = firstMessage.Subject || lastMessage.Subject || '(No Subject)';\n            \n            if (!recipient) {\n                for (const msg of [lastMessage, firstMessage]) {\n                    const payload = msg.payload || {};\n                    const headers = payload.headers || [];\n                    if (Array.isArray(headers)) {\n                        const toHeader = headers.find(h => (h.name || '').toLowerCase() === 'to');\n                        const subjectHeader = headers.find(h => (h.name || '').toLowerCase() === 'subject');\n                        if (toHeader && !recipient) recipient = toHeader.value;\n                        if (subjectHeader && subject === '(No Subject)') subject = subjectHeader.value;\n                    }\n                }\n            }\n            \n            if (!recipient) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Could not extract recipient email address'\n                    }\n                };\n            }\n            \n            // Daily limit check\n            if (followUpCount >= MAX_DAILY_FOLLOWUPS) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Daily limit of ' + MAX_DAILY_FOLLOWUPS + ' follow-ups reached. Skipping.'\n                    }\n                };\n            }\n\n            // Extract recipient first name (check initial message first, then latest)\n            let recipientFirstName = '';\n            const snippet = firstMessage.snippet || lastMessage.snippet || '';\n            const snippetMatch = snippet.match(/^(?:Aloha|Hi|Hello|Dear)\\s+([A-Za-z]+)/i);\n            if (snippetMatch && snippetMatch[1]) {\n                recipientFirstName = snippetMatch[1];\n            }\n            \n            let recipientEmail = recipient;\n            if (recipient) {\n                const emailMatch = recipient.match(/<([^>]+)>/);\n                if (emailMatch && emailMatch[1]) {\n                     recipientEmail = emailMatch[1];\n                }\n                if (!recipientFirstName) {\n                    const nameMatch = recipient.match(/^\"?([^\"<]+)\"?\\s*</);\n                    if (nameMatch && nameMatch[1]) {\n                        recipientFirstName = nameMatch[1].trim().split(' ')[0];\n                    }\n                }\n            }\n            \n            // Deduplication guard across threads\n            const cleanEmail = (recipientEmail || '').trim().toLowerCase();\n            if (cleanEmail && seenRecipients.has(cleanEmail)) {\n                return {\n                    json: {\n                        needsFollowUp: false,\n                        threadId: thread.id,\n                        reason: 'Duplicate recipient (' + cleanEmail + ') already scheduled for follow-up in this run.'\n                    }\n                };\n            }\n            if (cleanEmail) seenRecipients.add(cleanEmail);\n\n            followUpCount++;\n\n            return {\n                json: {\n                    needsFollowUp: true,\n                    threadId: thread.id,\n                    lastMessageId: lastMessage.id,\n                    messageCount: messages.length,\n                    followUpNumber: messages.length,\n                    recipient: recipient,\n                    recipientEmail: recipientEmail,\n                    recipientFirstName: recipientFirstName,\n                    originalSubject: subject,\n                    lastMessageSnippet: lastMessage.snippet,\n                    reason: 'Thread has ' + messages.length + ' sent message(s) from us and 0 replies.'\n                }\n            };\n        } catch (itemError) {\n            console.error('Error processing item:', itemError);\n            return {\n                json: {\n                    needsFollowUp: false,\n                    threadId: item?.json?.id || 'unknown',\n                    reason: 'Error processing thread: ' + itemError.message,\n                    errorStack: itemError.stack\n                }\n            };\n        }\n    });\n    \n    return results;\n    \n} catch (error) {\n    console.error('Fatal error in follow-up logic:', error);\n    return [{\n        json: {\n            needsFollowUp: false,\n            reason: 'Fatal error in workflow: ' + error.message,\n            errorStack: error.stack\n        }\n    }];\n}"
+      },
+      "id": "analyze-thread",
+      "name": "Analyze Thread",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.needsFollowUp }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-follow-up",
+      "name": "Check Follow Up",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and normalize recipient email address\nfunction extractEmail(toStr) {\n    if (!toStr) return '';\n    const match = toStr.match(/<([^>]+)>/);\n    const email = match ? match[1] : toStr;\n    return email.trim().toLowerCase();\n}\n\nconst seenEmails = new Set();\nconst seenThreads = new Set();\nconst uniqueItems = [];\n\nfor (const item of $input.all()) {\n    const json = item.json;\n    \n    // Extract To field\n    let rawTo = json.To || json.to || '';\n    if (!rawTo && json.payload && Array.isArray(json.payload.headers)) {\n        const toHeader = json.payload.headers.find(h => (h.name || '').toLowerCase() === 'to');\n        if (toHeader) rawTo = toHeader.value;\n    }\n    \n    const email = extractEmail(rawTo);\n    const threadId = json.threadId;\n\n    // Check if either the recipient email or threadId was already processed in this batch\n    let isDuplicate = false;\n    if (email && seenEmails.has(email)) {\n        isDuplicate = true;\n    }\n    if (threadId && seenThreads.has(threadId)) {\n        isDuplicate = true;\n    }\n\n    if (!isDuplicate) {\n        if (email) seenEmails.add(email);\n        if (threadId) seenThreads.add(threadId);\n        uniqueItems.push(item);\n    }\n}\n\nreturn uniqueItems;"
+      },
+      "id": "deduplicate-by-email",
+      "name": "Deduplicate by Recipient Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map((item, index) => {\n  const json = item.json;\n  const firstName = json.recipientFirstName || '';\n  const greeting = firstName ? 'Aloha ' + firstName + ',' : 'Aloha,';\n  const body = greeting + '\\nI just wanted to follow up on my email and see if you had a chance to take a look.\\nWe’d love the opportunity to learn a little more about your business and see if there’s anything Zumify could help make easier, whether that’s with your website, technology, systems, or something you’ve been wanting to build.\\nNo pressure at all, we’d simply love to connect with another local business and see where we might be able to help.\\nIf you’re interested, just reply here and I’d be happy to chat.\\nMahalo,';\n  const subject = json.originalSubject \n    ? (json.originalSubject.toLowerCase().startsWith('re:') ? json.originalSubject : 'Re: ' + json.originalSubject)\n    : 'Re: Following up';\n\n  return {\n    json: {\n      ...json,\n      candidateIndex: index,\n      recipientName: firstName || json.recipientEmail,\n      subject: subject,\n      body: body\n    }\n  };\n});"
+      },
+      "id": "format-followup-email",
+      "name": "Format Follow-up Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "loop-over-followups",
+      "name": "Loop Over Follow-ups",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1664,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/agents/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agentName: \"Kainoa\",\n  step: \"Awaiting Approval: \" + ($json.recipientName || $json.recipientEmail),\n  status: \"Needs Approval\",\n  title: \"Send follow-up reply to \" + ($json.recipientName ? $json.recipientName + \" (\" + $json.recipientEmail + \")\" : $json.recipientEmail),\n  recipientName: $json.recipientName,\n  recipientEmail: $json.recipientEmail,\n  subject: $json.subject,\n  emailBody: $json.body,\n  threadId: $json.threadId,\n  lastMessageId: $json.lastMessageId,\n  resumeUrl: $execution.resumeUrl\n}) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "request-dashboard-approval",
+      "name": "Request Dashboard Approval",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1872,
+        304
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "approval-node",
+      "name": "Approval Node",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2064,
+        304
+      ],
+      "webhookId": "50cd1542-0d00-48c2-b7d1-9636e50b1b1f"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "approval-condition-1",
+              "leftValue": "={{ ($json.body?.Decision || $json.Decision || $json.decision || \"\").toLowerCase() }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-approval",
+      "name": "Check Approval",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2272,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.item.json.body || $input.item.json;\nlet currentCandidate = {};\ntry {\n  currentCandidate = $('Loop Over Follow-ups').item.json || {};\n} catch(e) {}\n\nif (!currentCandidate.threadId && incoming.recipientEmail) {\n  try {\n    const allFormatted = $('Format Follow-up Email').all();\n    const found = allFormatted.find(f => (f.json?.recipientEmail || '').toLowerCase() === (incoming.recipientEmail || '').toLowerCase());\n    if (found) currentCandidate = found.json;\n  } catch(e) {}\n}\n\nconst subject = (incoming.Subject !== undefined && incoming.Subject !== null && incoming.Subject !== '')\n  ? incoming.Subject\n  : (currentCandidate.subject || 'Re: Following up');\n\nconst body = (incoming['Email Body'] !== undefined && incoming['Email Body'] !== null && incoming['Email Body'] !== '')\n  ? incoming['Email Body']\n  : (incoming.body || currentCandidate.body || '');\n\nconst recipientEmail = incoming.recipientEmail || currentCandidate.recipientEmail;\nconst recipientFirstName = incoming.recipientName || currentCandidate.recipientFirstName || '';\nconst threadId = incoming.threadId || currentCandidate.threadId;\nconst lastMessageId = incoming.lastMessageId || currentCandidate.lastMessageId;\n\nreturn [{\n  json: {\n    recipientEmail,\n    recipientFirstName,\n    subject,\n    body,\n    threadId,\n    lastMessageId,\n    decision: 'Approve',\n    isEdited: (subject !== currentCandidate.subject || body !== currentCandidate.body)\n  }\n}];"
+      },
+      "id": "restore-edited-email",
+      "name": "Restore Edited Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "thread",
+        "operation": "reply",
+        "threadId": "={{ $json.threadId }}",
+        "messageId": "={{ $json.lastMessageId }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "replyToRecipientsOnly": true
+        }
+      },
+      "id": "send-reply",
+      "name": "Send Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        208
+      ],
+      "webhookId": "b14b8375-78e9-4bd0-97f8-80beac0445cb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "yW2fcUK1a3iwnsJP",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    status: 'declined',\n    recipientEmail: $('Loop Over Follow-ups').item.json?.recipientEmail\n  }\n}];"
+      },
+      "id": "declined-do-nothing",
+      "name": "Declined (Do Nothing)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    status: 'completed',\n    message: 'All pending follow-ups reviewed and processed.'\n  }\n}];"
+      },
+      "id": "finished-followups",
+      "name": "Finished Follow-ups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1872,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/agents/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agentName: \"Kainoa\",\n  step: \"Gmail Follow-ups Completed\",\n  status: \"Completed\",\n  output: $json.message || \"All pending follow-ups reviewed and processed.\"\n}) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "notify-status-followups-completed",
+      "name": "Notify Status: Follow-ups Completed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2080,
+        512
+      ],
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Sent Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Recent Sent Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Recent Sent Emails": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate by Recipient Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate by Recipient Email": {
+      "main": [
+        [
+          {
+            "node": "Get Thread Details",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Thread Details": {
+      "main": [
+        [
+          {
+            "node": "Analyze Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Thread": {
+      "main": [
+        [
+          {
+            "node": "Check Follow Up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Follow Up": {
+      "main": [
+        [
+          {
+            "node": "Format Follow-up Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Follow-up Email": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Follow-ups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Follow-ups": {
+      "main": [
+        [
+          {
+            "node": "Finished Follow-ups",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Request Dashboard Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request Dashboard Approval": {
+      "main": [
+        [
+          {
+            "node": "Approval Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Node": {
+      "main": [
+        [
+          {
+            "node": "Check Approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approval": {
+      "main": [
+        [
+          {
+            "node": "Restore Edited Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Declined (Do Nothing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Edited Email": {
+      "main": [
+        [
+          {
+            "node": "Send Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Reply": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Follow-ups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Declined (Do Nothing)": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Follow-ups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finished Follow-ups": {
+      "main": [
+        [
+          {
+            "node": "Notify Status: Follow-ups Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "executionTimeout": 3600,
+    "saveExecutionProgress": true,
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "timezone": "UTC",
+    "saveDataErrorExecution": "all",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "2688c485-fa51-47fa-b82a-cbe2c0c84f4b",
+  "activeVersionId": null,
+  "versionCounter": 39,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "activeVersion": null
+}

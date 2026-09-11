@@ -80,6 +80,8 @@ export async function approveApproval(approvalId: string, formData?: FormData) {
         // Ensure container hostname translates properly if called from host
         if (targetUrl.includes("host.docker.internal")) {
           targetUrl = targetUrl.replace("host.docker.internal", "127.0.0.1");
+        } else if (targetUrl.includes("://n8n:")) {
+          targetUrl = targetUrl.replace("://n8n:", "://127.0.0.1:");
         }
         await postJson(targetUrl, {
           Decision: "Approve",
@@ -160,10 +162,12 @@ export async function approveApproval(approvalId: string, formData?: FormData) {
       },
     });
 
-    revalidatePath("/approvals");
-    revalidatePath("/tasks");
-    revalidatePath("/operations");
-    revalidatePath("/");
+    try {
+      revalidatePath("/approvals");
+      revalidatePath("/tasks");
+      revalidatePath("/operations");
+      revalidatePath("/");
+    } catch {}
     return { success: true };
   } catch (err: any) {
     console.error("[Approvals] Error in approveApproval:", err);
@@ -188,6 +192,8 @@ export async function rejectApproval(approvalId: string) {
         let targetUrl = metadata.resumeUrl;
         if (targetUrl.includes("host.docker.internal")) {
           targetUrl = targetUrl.replace("host.docker.internal", "127.0.0.1");
+        } else if (targetUrl.includes("://n8n:")) {
+          targetUrl = targetUrl.replace("://n8n:", "://127.0.0.1:");
         }
         await postJson(targetUrl, {
           Decision: "Decline",
@@ -230,10 +236,12 @@ export async function rejectApproval(approvalId: string) {
       },
     });
 
-    revalidatePath("/approvals");
-    revalidatePath("/tasks");
-    revalidatePath("/operations");
-    revalidatePath("/");
+    try {
+      revalidatePath("/approvals");
+      revalidatePath("/tasks");
+      revalidatePath("/operations");
+      revalidatePath("/");
+    } catch {}
     return { success: true };
   } catch (err: any) {
     console.error("[Approvals] Error in rejectApproval:", err);

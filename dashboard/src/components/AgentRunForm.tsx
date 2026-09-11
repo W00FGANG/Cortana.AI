@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload } from "lucide-react";
+import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload, RefreshCw } from "lucide-react";
 
 interface AgentRunFormProps {
   agentId: string;
@@ -57,7 +57,7 @@ export function AgentRunForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Email agent specific state
-  const [emailMode, setEmailMode] = useState<"single" | "upload">("single");
+  const [emailMode, setEmailMode] = useState<"single" | "upload" | "followup">("single");
   const [recipientName, setRecipientName] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
   const [urls, setUrls] = useState("");
@@ -114,7 +114,9 @@ export function AgentRunForm({
       let requestBody: any = {};
 
       if (isEmail) {
-        if (emailMode === "upload") {
+        if (emailMode === "followup") {
+          requestBody = { mode: "followup" };
+        } else if (emailMode === "upload") {
           let recipientsToSend = uploadedFile?.recipients;
           if (!recipientsToSend && rawPastedJson.trim()) {
             try {
@@ -237,13 +239,40 @@ export function AgentRunForm({
               <Upload className="h-3.5 w-3.5" />
               JSON Upload
             </button>
+            <button
+              type="button"
+              onClick={() => setEmailMode("followup")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${emailMode === "followup" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Gmail Follow-ups
+            </button>
           </div>
         )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
         {isEmail ? (
-          emailMode === "single" ? (
+          emailMode === "followup" ? (
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-5 space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white shrink-0">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    Automated Gmail Follow-up Scanner
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Kainoa scans sent conversations (5–30 days old) with 0 replies.
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                When initiated, Kainoa fetches recent outreach threads, filters for recipients who haven&apos;t replied, generates friendly follow-up drafts, and pauses at the <strong>Approval Node</strong>. Each draft appears directly on the <strong>Approvals</strong> page for your review and one-click authorization before sending.
+              </p>
+            </div>
+          ) : emailMode === "single" ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -491,12 +520,22 @@ export function AgentRunForm({
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
-                <span>Executing Workflow...</span>
+                <span>
+                  {isEmail && emailMode === "followup"
+                    ? "Scanning Gmail threads..."
+                    : "Executing Workflow..."}
+                </span>
               </>
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                <span>{isEmail ? "Launch Outreach Workflow" : "Launch Workflow"}</span>
+                <span>
+                  {isEmail
+                    ? emailMode === "followup"
+                      ? "Run Gmail Follow-up Scan"
+                      : "Launch Outreach Workflow"
+                    : "Launch Workflow"}
+                </span>
               </>
             )}
           </button>

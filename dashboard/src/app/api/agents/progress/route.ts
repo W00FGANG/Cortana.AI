@@ -201,6 +201,7 @@ export async function POST(request: Request) {
           recipientEmail,
           recipientName,
           subject: emailSubject,
+          body: emailBody,
         })} -->`;
         approvalContent += metadataTag;
       }

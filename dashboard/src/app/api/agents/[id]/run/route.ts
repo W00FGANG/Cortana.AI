@@ -72,7 +72,7 @@ async function executeWorkflowInBackground({
     const { status, text: resText } = await postJson(webhookUrl, payload);
 
     if (status === 404) {
-      const errorMsg = "The workflow is inactive in n8n. Please open n8n and toggle the 'Active' switch (top-right of editor) to ON.";
+      const errorMsg = "The workflow endpoint was not found or is currently inactive. Please ensure the agent workflow is active.";
       await prisma.task.update({
         where: { id: taskId },
         data: {
@@ -101,7 +101,7 @@ async function executeWorkflowInBackground({
     }
 
     if (status >= 400) {
-      const errorMsg = `n8n returned HTTP ${status}: ${resText}`;
+      const errorMsg = `Workflow execution returned HTTP ${status}: ${resText}`;
       await prisma.task.update({
         where: { id: taskId },
         data: {
@@ -252,7 +252,8 @@ async function executeWorkflowInBackground({
         },
       });
 
-      if (responseData?.markdown || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0)) {
+      const isHarper = agentName?.toLowerCase().includes("harper");
+      if (!isHarper && (responseData?.markdown || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
         await prisma.approval.create({
           data: {
             agentId,
@@ -311,7 +312,18 @@ async function executeWorkflowInBackground({
   }
 }
 
-function resolveWebhookUrl(agent: { n8nWorkflowId?: string | null; role?: string | null; name?: string | null }): string {
+function resolveWebhookUrl(
+  agent: { n8nWorkflowId?: string | null; role?: string | null; name?: string | null },
+  isFollowup = false
+): string {
+  if (isFollowup) {
+    const followupWebhook = process.env.N8N_GMAIL_FOLLOWUP_WEBHOOK_URL?.trim();
+    return followupWebhook || "http://127.0.0.1:5678/webhook/gmail-followup";
+  }
+  if (agent.n8nWorkflowId === "Al3atlOTCSx8ZNgN" || agent.role?.toLowerCase().includes("outreach") || agent.role?.toLowerCase().includes("email") || agent.name?.toLowerCase().includes("kainoa")) {
+    const emailWebhook = process.env.N8N_EMAIL_WEBHOOK_URL?.trim();
+    return emailWebhook || "http://127.0.0.1:5678/webhook/email-agent";
+  }
   if (agent.n8nWorkflowId === "BDtjr1LOoK7VClxc" || agent.role?.toLowerCase().includes("haiku")) {
     return "http://127.0.0.1:5678/webhook/haiku-generator";
   }
@@ -319,9 +331,10 @@ function resolveWebhookUrl(agent: { n8nWorkflowId?: string | null; role?: string
     return "http://127.0.0.1:5678/webhook/generate-article";
   }
   if (agent.n8nWorkflowId === "1DElnhi9xf3iwYcp") {
-    return process.env.N8N_ARTICLE_WEBHOOK_URL || "http://127.0.0.1:5678/webhook/generate-article-ollama";
+    const articleWebhook = process.env.N8N_ARTICLE_WEBHOOK_URL?.trim();
+    return articleWebhook || "http://127.0.0.1:5678/webhook/generate-article-ollama";
   }
-  return process.env.N8N_ARTICLE_WEBHOOK_URL || "http://127.0.0.1:5678/webhook/generate-article-ollama";
+  return process.env.N8N_ARTICLE_WEBHOOK_URL?.trim() || "http://127.0.0.1:5678/webhook/generate-article-ollama";
 }
 
 export async function POST(
@@ -349,41 +362,124 @@ export async function POST(
     }
 
     // Extract optional payload
+    let mode = "";
     let keywords = "";
     let category = "AI";
     let language = "English";
+    let recipientName = "";
+    let recipientEmail = "";
+    let urls = "";
+    let extraPoints = "";
+    let recipientsList: any[] | null = null;
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       try {
         const body = await request.json();
+        mode = body.mode || body.type || body.workflow || "";
         keywords = body.keywords || body.Keywords || "";
         category = body.category || body.Category || "AI";
         language = body.language || body.Language || "English";
+        recipientName = body.recipientName || body.name || "";
+        recipientEmail = body.recipientEmail || body.email || "";
+        urls = body.urls || "";
+        extraPoints = body.extraPoints || body.talkingPoints || "";
+        if (Array.isArray(body.recipients)) {
+          recipientsList = body.recipients;
+        }
       } catch {
         // use defaults
       }
     } else if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
       try {
         const formData = await request.formData();
+        mode = (formData.get("mode") as string) || (formData.get("type") as string) || "";
         keywords = (formData.get("keywords") as string) || "";
         category = (formData.get("category") as string) || "AI";
         language = (formData.get("language") as string) || "English";
+        recipientName = (formData.get("recipientName") as string) || (formData.get("name") as string) || "";
+        recipientEmail = (formData.get("recipientEmail") as string) || (formData.get("email") as string) || "";
+        urls = (formData.get("urls") as string) || "";
+        extraPoints = (formData.get("extraPoints") as string) || (formData.get("talkingPoints") as string) || "";
+
+        const uploadedFile = formData.get("file") || formData.get("Upload_JSON_File") || formData.get("json");
+        if (uploadedFile && typeof (uploadedFile as any).text === "function") {
+          try {
+            const fileText = await (uploadedFile as any).text();
+            const parsed = JSON.parse(fileText);
+            recipientsList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.recipients) ? parsed.recipients : [parsed]);
+          } catch {}
+        }
       } catch {
         // use defaults
       }
     }
 
-    const taskTitle = keywords 
-      ? `Generate content for "${keywords}"` 
-      : `Manual execution for ${agent.name}`;
+    const isEmailWorkflow =
+      agent.n8nWorkflowId === "Al3atlOTCSx8ZNgN" ||
+      agent.role?.toLowerCase().includes("outreach") ||
+      agent.role?.toLowerCase().includes("email") ||
+      agent.name?.toLowerCase().includes("kainoa");
+
+    const isFollowupWorkflow =
+      isEmailWorkflow &&
+      (mode.toLowerCase().includes("followup") || mode.toLowerCase().includes("follow-up"));
+
+    let taskTitle = "";
+    let taskDesc = "";
+    let runInput = "";
+    let payload: any = null;
+
+    if (isFollowupWorkflow) {
+      taskTitle = "Scan & draft Gmail follow-ups";
+      taskDesc = "Autonomous scan of sent Gmail threads (older than 5d) for unreplied prospects";
+      runInput = "Mode: Gmail Follow-up Scanner";
+      payload = { mode: "followup", trigger: "manual" };
+    } else if (isEmailWorkflow) {
+      if (recipientsList && recipientsList.length > 0) {
+        taskTitle = `Send outreach to ${recipientsList.length} prospect(s)`;
+        taskDesc = `Batch outreach: ${recipientsList.map(r => r.name || r.email).slice(0, 3).join(", ")}${recipientsList.length > 3 ? "..." : ""}`;
+        runInput = JSON.stringify(recipientsList, null, 2);
+        payload = { recipients: recipientsList };
+      } else {
+        const targetLabel = recipientName ? `${recipientName} (${recipientEmail})` : recipientEmail || "Prospect";
+        taskTitle = `Send outreach email to ${targetLabel}`;
+        taskDesc = urls ? `Researching ${urls} | Context: ${extraPoints || 'Personalized outreach'}` : `Context: ${extraPoints || 'Personalized outreach'}`;
+        runInput = `Recipient: ${targetLabel}\nURLs: ${urls || 'None'}\nPoints: ${extraPoints || 'None'}`;
+        payload = {
+          recipientName: recipientName || "Prospect",
+          recipientEmail: recipientEmail || "",
+          urls: urls ? (typeof urls === 'string' ? urls.split('\n').map((u: string) => u.trim()).filter(Boolean) : urls) : [],
+          extraPoints: extraPoints || "",
+          recipients: [{
+            name: recipientName || "Prospect",
+            email: recipientEmail || "",
+            urls: urls ? (typeof urls === 'string' ? urls.split('\n').map((u: string) => u.trim()).filter(Boolean) : urls) : [],
+            extraPoints: extraPoints || ""
+          }]
+        };
+      }
+    } else {
+      taskTitle = keywords 
+        ? `Generate content for "${keywords}"` 
+        : `Manual execution for ${agent.name}`;
+      taskDesc = `Category: ${category} | Language: ${language}`;
+      runInput = keywords
+        ? `Keywords: "${keywords}", Category: "${category}", Language: "${language}"`
+        : `Manual execution for ${agent.name}`;
+      payload = {
+        Keywords: keywords || "AI Automation for Local Business, High ROI AI workflows",
+        Category: category || "AI",
+        Language: language || "English",
+      };
+    }
 
     // 1. Immediately create Task and Run in Database (< 30ms)
     const task = await prisma.task.create({
       data: {
         agentId: agent.id,
         title: taskTitle,
-        description: `Category: ${category} | Language: ${language}`,
+        description: taskDesc,
         status: "Running",
         priority: "High",
         startedAt: new Date(),
@@ -396,29 +492,24 @@ export async function POST(
         taskId: task.id,
         status: "Running",
         startedAt: new Date(),
-        input: keywords
-          ? `Keywords: "${keywords}", Category: "${category}", Language: "${language}"`
-          : `Manual execution for ${agent.name}`,
+        input: runInput,
         output: `Workflow running for ${agent.name}...`,
       },
     });
 
-    await prisma.activity.create({
-      data: {
-        agentId: agent.id,
-        action: `Executing: ${agent.name} Workflow`,
-        description: `Initiated workflow execution for "${keywords || agent.name}" (${category})`,
-        status: "Running",
-      },
-    });
+    if (!isEmailWorkflow || isFollowupWorkflow) {
+      await prisma.activity.create({
+        data: {
+          agentId: agent.id,
+          action: isFollowupWorkflow ? "Scanning Gmail For Follow-ups" : `Executing: ${agent.name} Workflow`,
+          description: `Initiated workflow execution: ${taskTitle}`,
+          status: "Running",
+        },
+      });
+    }
 
     // 2. Dispatch to n8n webhook asynchronously in background using Next.js after()
-    const webhookUrl = resolveWebhookUrl(agent);
-    const payload = {
-      Keywords: keywords || "AI Automation for Local Business, High ROI AI workflows",
-      Category: category || "AI",
-      Language: language || "English",
-    };
+    const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow);
 
     // Execute in background with Next.js after()
     after(() => {

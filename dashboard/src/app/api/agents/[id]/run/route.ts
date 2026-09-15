@@ -1,23 +1,31 @@
 import { NextResponse, after } from "next/server";
+import { revalidatePath } from "next/cache";
 import http from "node:http";
 import https from "node:https";
 import { prisma } from "@/lib/prisma";
+
+const httpAgent = new http.Agent({ keepAlive: true, timeout: 300000 });
+const httpsAgent = new https.Agent({ keepAlive: true, timeout: 300000 });
 
 // Custom HTTP request using built-in node:http with no artificial socket timeouts
 function postJson(urlStr: string, data: any): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
     try {
       const url = new URL(urlStr);
-      const client = url.protocol === "https:" ? https : http;
+      const isHttps = url.protocol === "https:";
+      const client = isHttps ? https : http;
+      const agent = isHttps ? httpsAgent : httpAgent;
       const bodyStr = JSON.stringify(data);
 
       const req = client.request(
         url,
         {
           method: "POST",
+          agent,
           headers: {
             "Content-Type": "application/json",
             "Content-Length": Buffer.byteLength(bodyStr),
+            "Connection": "keep-alive",
           },
         },
         (res) => {
@@ -57,6 +65,7 @@ async function executeWorkflowInBackground({
   keywords,
   category,
   language,
+  focusTopic,
 }: {
   agentId: string;
   agentName: string;
@@ -67,6 +76,7 @@ async function executeWorkflowInBackground({
   keywords: string;
   category: string;
   language: string;
+  focusTopic?: string;
 }) {
   try {
     const { status, text: resText } = await postJson(webhookUrl, payload);
@@ -163,7 +173,7 @@ async function executeWorkflowInBackground({
         } else if (typeof responseData.articleJson === "string") {
           try {
             cleanArticle = JSON.parse(responseData.articleJson);
-          } catch {}
+          } catch { }
         } else if (responseData.data && typeof responseData.data === "object") {
           if (responseData.data.articleJson && typeof responseData.data.articleJson === "object") {
             cleanArticle = responseData.data.articleJson;
@@ -210,7 +220,10 @@ async function executeWorkflowInBackground({
 
       const stepName = responseData?.step || "Workflow Completed";
       const nodesList = Array.isArray(responseData?.nodesExecuted) ? responseData.nodesExecuted : null;
-      const articleTitle = cleanArticle?.title || responseData?.title || (keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
+      const articleTitle =
+        cleanArticle?.title ||
+        responseData?.title ||
+        (focusTopic ? `Market Research: "${focusTopic}"` : keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
 
       await prisma.task.update({
         where: { id: taskId },
@@ -253,17 +266,73 @@ async function executeWorkflowInBackground({
       });
 
       const isHarper = agentName?.toLowerCase().includes("harper");
-      if (!isHarper && (responseData?.markdown || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
+      if (!isHarper && (responseData?.markdown || responseData?.report || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
         await prisma.approval.create({
           data: {
             agentId,
             taskId,
             title: `Approve: ${articleTitle}`,
-            content: responseData?.markdown || resultText,
+            content: responseData?.markdown || responseData?.report || resultText,
             status: "Pending",
           },
         });
       }
+
+      try {
+        revalidatePath(`/agents/${agentId}`);
+        revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+        revalidatePath("/");
+        revalidatePath("/tasks");
+        revalidatePath("/operations");
+        revalidatePath("/approvals");
+      } catch {}
+    } else if (status >= 200 && status < 300) {
+      // Fallback completion for any successful HTTP 2xx response
+      const resultText =
+        typeof responseData === "object" && responseData !== null
+          ? JSON.stringify(responseData, null, 2)
+          : (resText || "Workflow completed successfully");
+
+      await prisma.task.update({
+        where: { id: taskId },
+        data: {
+          status: "Completed",
+          completedAt: new Date(),
+          result: resultText,
+        },
+      });
+
+      await prisma.agentRun.update({
+        where: { id: runId },
+        data: {
+          status: "Completed",
+          completedAt: new Date(),
+          output: resultText,
+        },
+      });
+
+      await prisma.activity.updateMany({
+        where: { agentId, status: "Running" },
+        data: { status: "Success" },
+      });
+
+      await prisma.activity.create({
+        data: {
+          agentId,
+          action: "Workflow completed",
+          description: `Execution finished with HTTP ${status}:\n${resultText}`,
+          status: "Success",
+        },
+      });
+
+      try {
+        revalidatePath(`/agents/${agentId}`);
+        revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+        revalidatePath("/");
+        revalidatePath("/tasks");
+        revalidatePath("/operations");
+        revalidatePath("/approvals");
+      } catch {}
     }
   } catch (err: any) {
     const isAsyncOngoing =
@@ -279,7 +348,24 @@ async function executeWorkflowInBackground({
 
     if (isAsyncOngoing) {
       console.log(`[Cortana] Webhook dispatched to ${agentName}. Workflow is processing asynchronously in n8n.`);
-      // Do NOT mark as failed since n8n is actively running
+      // Monitor in background for completion reported via progress callback
+      try {
+        after(async () => {
+          for (let i = 0; i < 24; i++) {
+            await new Promise((r) => setTimeout(r, 5000));
+            const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
+            if (currentTask && currentTask.status !== "Running") {
+              try {
+                revalidatePath(`/agents/${agentId}`);
+                revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+                revalidatePath("/");
+                revalidatePath("/tasks");
+              } catch {}
+              return;
+            }
+          }
+        });
+      } catch {}
       return;
     }
 
@@ -292,7 +378,7 @@ async function executeWorkflowInBackground({
         completedAt: new Date(),
         result: errorMsg,
       },
-    }).catch(() => {});
+    }).catch(() => { });
     await prisma.agentRun.update({
       where: { id: runId },
       data: {
@@ -300,7 +386,7 @@ async function executeWorkflowInBackground({
         completedAt: new Date(),
         error: errorMsg,
       },
-    }).catch(() => {});
+    }).catch(() => { });
     await prisma.activity.create({
       data: {
         agentId,
@@ -308,7 +394,14 @@ async function executeWorkflowInBackground({
         description: errorMsg,
         status: "Failed",
       },
-    }).catch(() => {});
+    }).catch(() => { });
+
+    try {
+      revalidatePath(`/agents/${agentId}`);
+      revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+      revalidatePath("/");
+      revalidatePath("/tasks");
+    } catch {}
   }
 }
 
@@ -329,6 +422,14 @@ function resolveWebhookUrl(
   }
   if (agent.n8nWorkflowId === "yF7_KBvc1CZZvXjTgI4Fs") {
     return "http://127.0.0.1:5678/webhook/generate-article";
+  }
+  if (
+    agent.n8nWorkflowId === "6SfepVmMljnVsWBG" ||
+    agent.role?.toLowerCase().includes("marketing") ||
+    agent.name?.toLowerCase().includes("maya")
+  ) {
+    const mayaWebhook = process.env.N8N_MAYA_WEBHOOK_URL?.trim();
+    return mayaWebhook || "http://127.0.0.1:5678/webhook/social-media-research";
   }
   if (agent.n8nWorkflowId === "1DElnhi9xf3iwYcp") {
     const articleWebhook = process.env.N8N_ARTICLE_WEBHOOK_URL?.trim();
@@ -371,6 +472,9 @@ export async function POST(
     let urls = "";
     let extraPoints = "";
     let recipientsList: any[] | null = null;
+    let focusTopic = "";
+    let targetAudience = "";
+    let additionalContext = "";
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -384,6 +488,9 @@ export async function POST(
         recipientEmail = body.recipientEmail || body.email || "";
         urls = body.urls || "";
         extraPoints = body.extraPoints || body.talkingPoints || "";
+        focusTopic = body.focusTopic || body.focus_topic || body["Focus Topic"] || "";
+        targetAudience = body.targetAudience || body.target_audience || body["Target Audience"] || "";
+        additionalContext = body.additionalContext || body.additional_context || body["Additional Context"] || "";
         if (Array.isArray(body.recipients)) {
           recipientsList = body.recipients;
         }
@@ -401,6 +508,9 @@ export async function POST(
         recipientEmail = (formData.get("recipientEmail") as string) || (formData.get("email") as string) || "";
         urls = (formData.get("urls") as string) || "";
         extraPoints = (formData.get("extraPoints") as string) || (formData.get("talkingPoints") as string) || "";
+        focusTopic = (formData.get("focusTopic") as string) || (formData.get("focus_topic") as string) || (formData.get("Focus Topic") as string) || "";
+        targetAudience = (formData.get("targetAudience") as string) || (formData.get("target_audience") as string) || (formData.get("Target Audience") as string) || "";
+        additionalContext = (formData.get("additionalContext") as string) || (formData.get("additional_context") as string) || (formData.get("Additional Context") as string) || "";
 
         const uploadedFile = formData.get("file") || formData.get("Upload_JSON_File") || formData.get("json");
         if (uploadedFile && typeof (uploadedFile as any).text === "function") {
@@ -408,7 +518,7 @@ export async function POST(
             const fileText = await (uploadedFile as any).text();
             const parsed = JSON.parse(fileText);
             recipientsList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.recipients) ? parsed.recipients : [parsed]);
-          } catch {}
+          } catch { }
         }
       } catch {
         // use defaults
@@ -421,6 +531,11 @@ export async function POST(
       agent.role?.toLowerCase().includes("email") ||
       agent.name?.toLowerCase().includes("kainoa");
 
+    const isMarketingWorkflow =
+      agent.n8nWorkflowId === "6SfepVmMljnVsWBG" ||
+      agent.role?.toLowerCase().includes("marketing") ||
+      agent.name?.toLowerCase().includes("maya");
+
     const isFollowupWorkflow =
       isEmailWorkflow &&
       (mode.toLowerCase().includes("followup") || mode.toLowerCase().includes("follow-up"));
@@ -430,7 +545,23 @@ export async function POST(
     let runInput = "";
     let payload: any = null;
 
-    if (isFollowupWorkflow) {
+    if (isMarketingWorkflow) {
+      const topic = focusTopic.trim() || "Hawaii business & AI automation";
+      const audience = targetAudience.trim() || "Local business owners, entrepreneurs, and service professionals";
+      const context = additionalContext.trim() || "Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows";
+
+      taskTitle = `Social Media Research: ${topic}`;
+      taskDesc = `Audience: ${audience} | Live YouTube & Search Trends`;
+      runInput = `Focus Topic: "${topic}"\nTarget Audience: "${audience}"\nContext: "${context}"`;
+      payload = {
+        focus_topic: topic,
+        target_audience: audience,
+        additional_context: context,
+        "Focus Topic": topic,
+        "Target Audience": audience,
+        "Additional Context": context,
+      };
+    } else if (isFollowupWorkflow) {
       taskTitle = "Scan & draft Gmail follow-ups";
       taskDesc = "Autonomous scan of sent Gmail threads (older than 5d) for unreplied prospects";
       runInput = "Mode: Gmail Follow-up Scanner";
@@ -460,8 +591,8 @@ export async function POST(
         };
       }
     } else {
-      taskTitle = keywords 
-        ? `Generate content for "${keywords}"` 
+      taskTitle = keywords
+        ? `Generate content for "${keywords}"`
         : `Manual execution for ${agent.name}`;
       taskDesc = `Category: ${category} | Language: ${language}`;
       runInput = keywords
@@ -511,20 +642,35 @@ export async function POST(
     // 2. Dispatch to n8n webhook asynchronously in background using Next.js after()
     const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow);
 
-    // Execute in background with Next.js after()
-    after(() => {
+    // Execute in background with Next.js after(), with fallback if run outside server request scope
+    const dispatchBg = () => {
+      const trackingPayload = {
+        ...payload,
+        agentId: agent.id,
+        agentName: agent.name,
+        taskId: task.id,
+        runId: run.id,
+      };
+
       executeWorkflowInBackground({
         agentId: agent.id,
         agentName: agent.name,
         taskId: task.id,
         runId: run.id,
         webhookUrl,
-        payload,
+        payload: trackingPayload,
         keywords,
         category,
         language,
+        focusTopic,
       });
-    });
+    };
+
+    try {
+      after(dispatchBg);
+    } catch {
+      dispatchBg();
+    }
 
     const isHtmlForm = request.headers.get("accept")?.includes("text/html");
     if (isHtmlForm) {

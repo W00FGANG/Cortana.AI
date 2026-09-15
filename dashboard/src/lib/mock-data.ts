@@ -45,9 +45,9 @@ export const workers = [
     id: "maya",
     name: "Maya",
     role: "Marketing Agent",
-    description: "Maya helps Zumify plan, research, and create marketing content across social media, website content, campaigns, and brand communications.",
+    description: "Maya conducts live social media market research across YouTube Shorts and Google Search Trends, discovering viral hooks and drafting high-converting short-form video concepts.",
     status: "Active",
-    currentTask: "Generate this week's LinkedIn content ideas.",
+    currentTask: "Conduct social media research on Hawaii business automation.",
     completed: 2,
     lastRun: "Today, 9:45 AM",
     nextRun: "Tomorrow, 9:00 AM",
@@ -75,10 +75,11 @@ export const workers = [
       iconBg: "bg-pink-200 dark:bg-pink-800 text-pink-900 dark:text-pink-100",
     },
     capabilities: [
-      "Social Media Ideas",
-      "Content Planning",
-      "Marketing Research",
-      "Campaign Ideas"
+      "Social Media Research",
+      "Viral Trend Analysis",
+      "Short-Form Video Concepts",
+      "Live Market Scraping",
+      "Content Planning"
     ]
   },
   {

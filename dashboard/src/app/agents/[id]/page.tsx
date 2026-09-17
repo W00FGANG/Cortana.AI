@@ -6,6 +6,7 @@ import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 import { updateStalledExecutions } from "@/lib/stalled-executions";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
+import { SocialPublisherOutputViewer } from "@/components/SocialPublisherOutputViewer";
 import { JsonFileOutputViewer } from "@/components/JsonFileOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
 import { AgentChatBubble } from "@/components/AgentChatBubble";
@@ -139,6 +140,20 @@ export default async function AgentProfilePage({ params }: PageProps) {
   const completedTaskWithResult = agent.tasks.find((t) => t.status === "Completed" && t.result) || agent.tasks.find((t) => t.result);
   const completedRunWithOutput = agent.runs.find((r) => r.status === "Completed" && r.output) || agent.runs.find((r) => r.output);
   const latestArticleOutput = completedTaskWithResult?.result || completedRunWithOutput?.output;
+
+  // Check if Maya's latest output is a Social Publisher output
+  let isSocialPublisherOutput = false;
+  if (isMarketingAgent && latestArticleOutput) {
+    try {
+      const trimmed = latestArticleOutput.trim();
+      if (trimmed.startsWith("{")) {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && (parsed.platforms || parsed.post_summary || parsed.target_platforms || parsed.post_text)) {
+          isSocialPublisherOutput = true;
+        }
+      }
+    } catch {}
+  }
 
   // For Kainoa, strictly only show the drafting step and the approval/declination step
   const displayedActivities = isEmailAgent
@@ -427,16 +442,21 @@ export default async function AgentProfilePage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Output Section: Article / Research Report Viewer (Harper & Maya), or Email Sent List for Email Agent (Kainoa) */}
-          {!isEmailAgent && latestArticleOutput && (
+          {/* Output Section: Social Media Publisher Receipt, or Research Report / Article Viewer, or Email Sent List */}
+          {isMarketingAgent && isSocialPublisherOutput && latestArticleOutput ? (
+            <SocialPublisherOutputViewer
+              outputData={latestArticleOutput}
+              defaultTitle={completedTaskWithResult?.title || "Social Media Publishing Receipt"}
+            />
+          ) : !isEmailAgent && latestArticleOutput ? (
             <ArticleOutputViewer
               outputData={latestArticleOutput}
               defaultTitle={completedTaskWithResult?.title || (isMarketingAgent ? "Social Media Research Report" : "Research Article Output")}
               agentType={isMarketingAgent ? "marketing" : isArticleGenerator ? "article" : "general"}
             />
-          )}
+          ) : null}
 
-          {/* Workflow JSON Output File (when completed) */}
+          {/* Workflow JSON Output File (when completed for Kainoa) */}
           {isEmailAgent && emailWorkflowJsonOutput && (
             <JsonFileOutputViewer
               outputData={emailWorkflowJsonOutput}

@@ -407,8 +407,13 @@ async function executeWorkflowInBackground({
 
 function resolveWebhookUrl(
   agent: { n8nWorkflowId?: string | null; role?: string | null; name?: string | null },
-  isFollowup = false
+  isFollowup = false,
+  isPublisher = false
 ): string {
+  if (isPublisher) {
+    const publisherWebhook = process.env.N8N_SOCIAL_PUBLISHER_WEBHOOK_URL?.trim();
+    return publisherWebhook || "http://127.0.0.1:5678/webhook/social-media-publisher";
+  }
   if (isFollowup) {
     const followupWebhook = process.env.N8N_GMAIL_FOLLOWUP_WEBHOOK_URL?.trim();
     return followupWebhook || "http://127.0.0.1:5678/webhook/gmail-followup";
@@ -476,6 +481,18 @@ export async function POST(
     let targetAudience = "";
     let additionalContext = "";
 
+    // Social Publisher Fields
+    let postText = "";
+    let platforms = "both";
+    let mediaType = "NONE";
+    let mediaUrl = "";
+    let articleUrl = "";
+    let hashtags = "";
+    let linkedinVisibility = "PUBLIC";
+    let linkedinPostAs = "person";
+    let linkedinOrganizationUrn = "";
+    let xReplySettings = "everyone";
+
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
       try {
@@ -491,6 +508,19 @@ export async function POST(
         focusTopic = body.focusTopic || body.focus_topic || body["Focus Topic"] || "";
         targetAudience = body.targetAudience || body.target_audience || body["Target Audience"] || "";
         additionalContext = body.additionalContext || body.additional_context || body["Additional Context"] || "";
+        
+        postText = body.postText || body.post_text || body.text || body.content || body["Post Text"] || "";
+        platforms = body.platforms || body.target_platforms || body["Target Platforms"] || "both";
+        mediaType = body.mediaType || body.media_type || body["Media Type"] || "NONE";
+        mediaUrl = body.mediaUrl || body.media_url || body["Media URL"] || body["Media URL (Image or Video Direct Link)"] || "";
+        articleUrl = body.articleUrl || body.article_url || body["Article / Link URL"] || body.url || "";
+        hashtags = body.hashtags || body.tags || body["Hashtags / Tags"] || "";
+        
+        linkedinVisibility = body.linkedinVisibility || body.linkedin_visibility || body["LinkedIn Visibility"] || "PUBLIC";
+        linkedinPostAs = body.linkedinPostAs || body.linkedin_post_as || body["LinkedIn Post As"] || "person";
+        linkedinOrganizationUrn = body.linkedinOrganizationUrn || body.linkedin_organization_urn || body["LinkedIn Organization URN"] || "";
+        xReplySettings = body.xReplySettings || body.x_reply_settings || body["X / Twitter Reply Settings"] || "everyone";
+
         if (Array.isArray(body.recipients)) {
           recipientsList = body.recipients;
         }
@@ -511,6 +541,17 @@ export async function POST(
         focusTopic = (formData.get("focusTopic") as string) || (formData.get("focus_topic") as string) || (formData.get("Focus Topic") as string) || "";
         targetAudience = (formData.get("targetAudience") as string) || (formData.get("target_audience") as string) || (formData.get("Target Audience") as string) || "";
         additionalContext = (formData.get("additionalContext") as string) || (formData.get("additional_context") as string) || (formData.get("Additional Context") as string) || "";
+
+        postText = (formData.get("postText") as string) || (formData.get("post_text") as string) || (formData.get("text") as string) || "";
+        platforms = (formData.get("platforms") as string) || (formData.get("target_platforms") as string) || "both";
+        mediaType = (formData.get("mediaType") as string) || (formData.get("media_type") as string) || "NONE";
+        mediaUrl = (formData.get("mediaUrl") as string) || (formData.get("media_url") as string) || "";
+        articleUrl = (formData.get("articleUrl") as string) || (formData.get("article_url") as string) || "";
+        hashtags = (formData.get("hashtags") as string) || (formData.get("tags") as string) || "";
+        linkedinVisibility = (formData.get("linkedinVisibility") as string) || (formData.get("linkedin_visibility") as string) || "PUBLIC";
+        linkedinPostAs = (formData.get("linkedinPostAs") as string) || (formData.get("linkedin_post_as") as string) || "person";
+        linkedinOrganizationUrn = (formData.get("linkedinOrganizationUrn") as string) || (formData.get("linkedin_organization_urn") as string) || "";
+        xReplySettings = (formData.get("xReplySettings") as string) || (formData.get("x_reply_settings") as string) || "everyone";
 
         const uploadedFile = formData.get("file") || formData.get("Upload_JSON_File") || formData.get("json");
         if (uploadedFile && typeof (uploadedFile as any).text === "function") {
@@ -540,12 +581,55 @@ export async function POST(
       isEmailWorkflow &&
       (mode.toLowerCase().includes("followup") || mode.toLowerCase().includes("follow-up"));
 
+    const isSocialPublisherWorkflow =
+      isMarketingWorkflow &&
+      (mode.toLowerCase().includes("publisher") ||
+       mode.toLowerCase().includes("poster") ||
+       mode.toLowerCase().includes("publish") ||
+       mode.toLowerCase().includes("social-media-publisher") ||
+       Boolean(postText.trim()));
+
     let taskTitle = "";
     let taskDesc = "";
     let runInput = "";
     let payload: any = null;
 
-    if (isMarketingWorkflow) {
+    if (isSocialPublisherWorkflow) {
+      const cleanPostText = postText.trim() || "Autonomous social media publishing update";
+      const snippet = cleanPostText.length > 50 ? `${cleanPostText.slice(0, 47)}...` : cleanPostText;
+      const targetPlatformUpper = platforms === "both" ? "X & LinkedIn" : platforms === "x" ? "X (Twitter)" : "LinkedIn";
+      
+      taskTitle = `Social Media Post: "${snippet}"`;
+      taskDesc = `Platforms: ${targetPlatformUpper} | Media: ${mediaType} | Mode: Live Publish`;
+      runInput = `Platforms: ${targetPlatformUpper}\nMedia: ${mediaType}\nMode: Live Publish\nText:\n${cleanPostText}${hashtags ? `\n\nHashtags: ${hashtags}` : ""}${mediaUrl ? `\nMedia URL: ${mediaUrl}` : ""}${articleUrl ? `\nArticle URL: ${articleUrl}` : ""}`;
+
+      payload = {
+        post_text: cleanPostText,
+        platforms,
+        media_type: mediaType,
+        media_url: mediaUrl,
+        article_url: articleUrl,
+        hashtags,
+        dry_run: false,
+        mode: "live",
+        linkedin_visibility: linkedinVisibility,
+        linkedin_post_as: linkedinPostAs,
+        linkedin_organization_urn: linkedinOrganizationUrn,
+        x_reply_settings: xReplySettings,
+        // Also map standard Form labels for n8n compatibility:
+        "Post Text": cleanPostText,
+        "Target Platforms": platforms === "both" ? "Both X and LinkedIn" : platforms === "x" ? "X (Twitter) Only" : "LinkedIn Only",
+        "Media Type": mediaType === "NONE" ? "Text Only" : mediaType === "IMAGE" ? "Image" : mediaType === "VIDEO" ? "Video" : "Article Link",
+        "Execution Mode": "Live Publish (Post to Platforms)",
+        "Media URL (Image or Video Direct Link)": mediaUrl,
+        "Article / Link URL": articleUrl,
+        "Hashtags / Tags": hashtags,
+        "LinkedIn Visibility": linkedinVisibility,
+        "LinkedIn Post As": linkedinPostAs === "organization" ? "Organization" : "Person",
+        "LinkedIn Organization URN": linkedinOrganizationUrn,
+        "X / Twitter Reply Settings": xReplySettings,
+      };
+    } else if (isMarketingWorkflow) {
       const topic = focusTopic.trim() || "Hawaii business & AI automation";
       const audience = targetAudience.trim() || "Local business owners, entrepreneurs, and service professionals";
       const context = additionalContext.trim() || "Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows";
@@ -632,7 +716,11 @@ export async function POST(
       await prisma.activity.create({
         data: {
           agentId: agent.id,
-          action: isFollowupWorkflow ? "Scanning Gmail For Follow-ups" : `Executing: ${agent.name} Workflow`,
+          action: isSocialPublisherWorkflow
+            ? `Publishing: Social Media Post`
+            : isFollowupWorkflow
+            ? "Scanning Gmail For Follow-ups"
+            : `Executing: ${agent.name} Workflow`,
           description: `Initiated workflow execution: ${taskTitle}`,
           status: "Running",
         },
@@ -640,7 +728,7 @@ export async function POST(
     }
 
     // 2. Dispatch to n8n webhook asynchronously in background using Next.js after()
-    const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow);
+    const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow, isSocialPublisherWorkflow);
 
     // Execute in background with Next.js after(), with fallback if run outside server request scope
     const dispatchBg = () => {

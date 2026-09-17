@@ -1,0 +1,1108 @@
+{
+  "name": "Social Media Publisher (X & LinkedIn)",
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "path": "social-media-publisher",
+        "formTitle": "Social Media Publisher (X & LinkedIn)",
+        "formDescription": "Publish text, images, videos, and links to X (Twitter) and LinkedIn with customized visibility and tags.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Post Text",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "Write your post content here..."
+            },
+            {
+              "fieldLabel": "Target Platforms",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Both X and LinkedIn"
+                  },
+                  {
+                    "option": "X (Twitter) Only"
+                  },
+                  {
+                    "option": "LinkedIn Only"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Media Type",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Text Only"
+                  },
+                  {
+                    "option": "Image"
+                  },
+                  {
+                    "option": "Video"
+                  },
+                  {
+                    "option": "Article Link"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Execution Mode",
+              "fieldType": "dropdown",
+              "requiredField": false,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Dry Run / Simulation (Preview Only)"
+                  },
+                  {
+                    "option": "Live Publish (Post to Platforms)"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Media URL (Image or Video Direct Link)",
+              "fieldType": "text",
+              "requiredField": false,
+              "placeholder": "https://example.com/media.jpg or mp4"
+            },
+            {
+              "fieldLabel": "Article / Link URL",
+              "fieldType": "text",
+              "requiredField": false,
+              "placeholder": "https://yourwebsite.com/article"
+            },
+            {
+              "fieldLabel": "Hashtags / Tags",
+              "fieldType": "text",
+              "requiredField": false,
+              "placeholder": "#AI, #Automation, #Tech"
+            },
+            {
+              "fieldLabel": "LinkedIn Visibility",
+              "fieldType": "dropdown",
+              "requiredField": false,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "PUBLIC"
+                  },
+                  {
+                    "option": "CONNECTIONS"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "LinkedIn Post As",
+              "fieldType": "dropdown",
+              "requiredField": false,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Person"
+                  },
+                  {
+                    "option": "Organization"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "LinkedIn Organization URN",
+              "fieldType": "text",
+              "requiredField": false,
+              "placeholder": "e.g. 12345678"
+            },
+            {
+              "fieldLabel": "X / Twitter Reply Settings",
+              "fieldType": "dropdown",
+              "requiredField": false,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "everyone"
+                  },
+                  {
+                    "option": "following"
+                  },
+                  {
+                    "option": "mentionedUsers"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "buttonLabel": "Publish Post Now",
+          "formSubmittedText": "Your social media post has been received and is being processed for X and LinkedIn!"
+        }
+      },
+      "id": "form-trigger-social-publisher",
+      "name": "On Form Submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        100,
+        160
+      ],
+      "webhookId": "social-media-publisher-form"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-media-publisher",
+        "responseMode": "lastNode",
+        "options": {},
+        "responseData": "firstEntryJson"
+      },
+      "id": "webhook-social-publisher",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        360
+      ],
+      "webhookId": "social-media-publisher"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger-social-publisher",
+      "name": "When clicking ‘Execute Workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mock-post-text",
+              "name": "post_text",
+              "type": "string",
+              "value": "Excited to announce our newest autonomous workflow engine! Cross-posting high-impact content to X and LinkedIn in seconds."
+            },
+            {
+              "id": "mock-platforms",
+              "name": "platforms",
+              "type": "string",
+              "value": "both"
+            },
+            {
+              "id": "mock-media-type",
+              "name": "media_type",
+              "type": "string",
+              "value": "IMAGE"
+            },
+            {
+              "id": "mock-media-url",
+              "name": "media_url",
+              "type": "string",
+              "value": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200"
+            },
+            {
+              "id": "mock-article-url",
+              "name": "article_url",
+              "type": "string",
+              "value": "https://cortana.ai"
+            },
+            {
+              "id": "mock-tags",
+              "name": "hashtags",
+              "type": "string",
+              "value": "#AI #Automation #TechTrends #Agents"
+            },
+            {
+              "id": "mock-visibility",
+              "name": "linkedin_visibility",
+              "type": "string",
+              "value": "PUBLIC"
+            },
+            {
+              "id": "mock-post-as",
+              "name": "linkedin_post_as",
+              "type": "string",
+              "value": "person"
+            },
+            {
+              "id": "mock-reply-settings",
+              "name": "x_reply_settings",
+              "type": "string",
+              "value": "everyone"
+            },
+            {
+              "id": "mock-dry-run",
+              "name": "dry_run",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mock-test-data",
+      "name": "Mock Test Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Inputs from Form Submission, Webhook, or Canvas Manual Trigger\nconst items = $input.all();\nconst rawItem = items[0]?.json || {};\nconst body = rawItem.body || {};\nconst query = rawItem.query || {};\n\n// Detect Trigger Source\nlet triggerSource = 'manual';\nif (rawItem.headers || rawItem.query || (body && Object.keys(body).length > 0 && !rawItem['Post Text'] && !rawItem['field-0'])) {\n  triggerSource = 'webhook';\n} else if (rawItem.submittedAt || rawItem['Post Text'] || rawItem['field-0']) {\n  triggerSource = 'form';\n}\n\n// 1. Resolve Execution Mode (dry_run vs live)\nconst rawMode = (\n  rawItem['Execution Mode'] ||\n  rawItem.mode ||\n  body.mode ||\n  body['Execution Mode'] ||\n  query.mode ||\n  ''\n).toString().toLowerCase();\n\nlet dryRun = false;\nif (\n  rawItem.dry_run === true ||\n  rawItem.dry_run === 'true' ||\n  body.dry_run === true ||\n  body.dry_run === 'true' ||\n  query.dry_run === 'true' ||\n  rawMode.includes('dry') ||\n  rawMode.includes('simulation') ||\n  rawMode.includes('preview')\n) {\n  dryRun = true;\n}\n\n// 2. Resolve Post Text\nconst postText = (\n  rawItem['Post Text'] ||\n  rawItem.post_text ||\n  rawItem.text ||\n  rawItem.content ||\n  rawItem['field-0'] ||\n  body['Post Text'] ||\n  body.post_text ||\n  body.text ||\n  body.content ||\n  query.text ||\n  'Automated update from AI Social Media Publisher.'\n).toString().trim();\n\n// 3. Resolve Target Platforms (both, x, linkedin)\nconst rawPlatforms = (\n  rawItem['Target Platforms'] ||\n  rawItem.target_platforms ||\n  rawItem.platforms ||\n  rawItem.platform ||\n  rawItem['field-1'] ||\n  body['Target Platforms'] ||\n  body.platforms ||\n  body.platform ||\n  query.platform ||\n  'both'\n).toString().toLowerCase();\n\nlet postToX = false;\nlet postToLinkedIn = false;\n\nif (rawPlatforms.includes('both') || rawPlatforms === 'all') {\n  postToX = true;\n  postToLinkedIn = true;\n} else if (rawPlatforms.includes('x') || rawPlatforms.includes('twitter')) {\n  postToX = true;\n} else if (rawPlatforms.includes('linkedin')) {\n  postToLinkedIn = true;\n} else {\n  postToX = true;\n  postToLinkedIn = true;\n}\n\n// 4. Resolve Media Type & Links\nconst rawMediaType = (\n  rawItem['Media Type'] ||\n  rawItem.media_type ||\n  rawItem['field-2'] ||\n  body['Media Type'] ||\n  body.media_type ||\n  'Text Only'\n).toString().toUpperCase();\n\nlet mediaType = 'NONE';\nif (rawMediaType.includes('IMAGE') || rawMediaType.includes('PHOTO')) {\n  mediaType = 'IMAGE';\n} else if (rawMediaType.includes('VIDEO')) {\n  mediaType = 'VIDEO';\n} else if (rawMediaType.includes('ARTICLE') || rawMediaType.includes('LINK')) {\n  mediaType = 'ARTICLE';\n}\n\nconst mediaUrl = (\n  rawItem['Media URL (Image or Video Direct Link)'] ||\n  rawItem.media_url ||\n  rawItem.image_url ||\n  rawItem.video_url ||\n  rawItem['field-4'] ||\n  body['Media URL'] ||\n  body.media_url ||\n  body.image_url ||\n  body.video_url ||\n  query.media_url ||\n  ''\n).toString().trim();\n\nconst articleUrl = (\n  rawItem['Article / Link URL'] ||\n  rawItem.article_url ||\n  rawItem.url ||\n  rawItem['field-5'] ||\n  body['Article / Link URL'] ||\n  body.article_url ||\n  body.url ||\n  query.url ||\n  ''\n).toString().trim();\n\n// 5. Resolve Tags / Hashtags\nconst rawTags = (\n  rawItem['Hashtags / Tags'] ||\n  rawItem.hashtags ||\n  rawItem.tags ||\n  rawItem['field-6'] ||\n  body['Hashtags / Tags'] ||\n  body.hashtags ||\n  body.tags ||\n  query.tags ||\n  ''\n).toString().trim();\n\nlet cleanTags = [];\nif (rawTags) {\n  cleanTags = rawTags\n    .split(/[,\\s]+/)\n    .map(t => t.trim())\n    .filter(Boolean)\n    .map(t => (t.startsWith('#') ? t : '#' + t));\n}\nconst tagsString = cleanTags.join(' ');\n\n// 6. Format Platform-Specific Copy\nlet xText = postText;\nif (tagsString) {\n  xText = postText + '\\n\\n' + tagsString;\n}\n\nconst xCharCount = xText.length;\nconst isLongTweet = xCharCount > 280;\n\nlet linkedinText = postText;\nif (tagsString) {\n  linkedinText = postText + '\\n\\n' + tagsString;\n}\n\n// 7. LinkedIn Settings\nconst rawVisibility = (\n  rawItem['LinkedIn Visibility'] ||\n  rawItem.linkedin_visibility ||\n  rawItem.visibility ||\n  rawItem['field-7'] ||\n  body['LinkedIn Visibility'] ||\n  body.linkedin_visibility ||\n  body.visibility ||\n  'PUBLIC'\n).toString().toUpperCase();\n\nconst linkedinVisibility = rawVisibility.includes('CONN') ? 'CONNECTIONS' : 'PUBLIC';\n\nconst rawPostAs = (\n  rawItem['LinkedIn Post As'] ||\n  rawItem.linkedin_post_as ||\n  rawItem.post_as ||\n  rawItem['field-8'] ||\n  body['LinkedIn Post As'] ||\n  body.linkedin_post_as ||\n  'person'\n).toString().toLowerCase();\n\nconst linkedinPostAs = rawPostAs.includes('org') ? 'organization' : 'person';\n\nconst linkedinOrgUrn = (\n  rawItem['LinkedIn Organization URN'] ||\n  rawItem.linkedin_organization_urn ||\n  rawItem.organization_urn ||\n  rawItem['field-9'] ||\n  body.organization_urn ||\n  ''\n).toString().trim();\n\n// 8. X Reply Settings\nconst rawReplySettings = (\n  rawItem['X / Twitter Reply Settings'] ||\n  rawItem.x_reply_settings ||\n  rawItem.reply_settings ||\n  rawItem['field-10'] ||\n  body.x_reply_settings ||\n  'everyone'\n).toString();\n\nconst xReplySettings = ['following', 'mentionedUsers'].includes(rawReplySettings)\n  ? rawReplySettings\n  : 'everyone';\n\n// 9. Binary Attachment Check\nconst binaryData = items[0]?.binary || {};\nconst hasBinaryMedia = Boolean(binaryData.data || binaryData.file || Object.keys(binaryData).length > 0);\nconst needsMediaDownload = (mediaType === 'IMAGE' || mediaType === 'VIDEO') && Boolean(mediaUrl) && !hasBinaryMedia;\n\nconst outputItem = {\n  json: {\n    trigger_source: triggerSource,\n    dry_run: dryRun,\n    post_text: postText,\n    platforms_requested: rawPlatforms,\n    post_to_x: postToX,\n    post_to_linkedin: postToLinkedIn,\n    media_type: mediaType,\n    media_url: mediaUrl,\n    article_url: articleUrl,\n    hashtags: cleanTags,\n    tags_string: tagsString,\n    x_text: xText,\n    x_char_count: xCharCount,\n    is_long_tweet: isLongTweet,\n    x_reply_settings: xReplySettings,\n    linkedin_text: linkedinText,\n    linkedin_visibility: linkedinVisibility,\n    linkedin_post_as: linkedinPostAs,\n    linkedin_organization_urn: linkedinOrgUrn,\n    needs_media_download: needsMediaDownload,\n    has_binary_media: hasBinaryMedia,\n    created_at: new Date().toISOString()\n  }\n};\n\nif (hasBinaryMedia) {\n  outputItem.binary = binaryData;\n}\n\nreturn [outputItem];"
+      },
+      "id": "normalize-validate-inputs",
+      "name": "Normalize & Validate Post Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.needs_media_download }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-needs-media-download",
+      "name": "Media Download Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.media_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "http-download-media",
+      "name": "Download Media Binary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure binary property is consistently accessible as 'data'\nconst items = $input.all();\nconst item = items[0] || { json: {} };\nconst binary = item.binary || {};\n\nlet normalizedBinary = {};\nconst keys = Object.keys(binary);\nif (keys.length > 0) {\n  const primaryKey = keys.includes('data') ? 'data' : keys[0];\n  normalizedBinary['data'] = binary[primaryKey];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    has_binary_data: Object.keys(normalizedBinary).length > 0\n  },\n  ...(Object.keys(normalizedBinary).length > 0 ? { binary: normalizedBinary } : {})\n}];"
+      },
+      "id": "standardize-media-binary",
+      "name": "Standardize Media Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.dry_run }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-dry-run",
+      "name": "Is Dry Run Mode?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate realistic simulated execution results for Dry Run mode\nconst item = $input.first()?.json || {};\n\nconst fakeTweetId = '183' + Math.floor(100000000000000 + Math.random() * 900000000000000);\nconst fakeLinkedinUrn = 'urn:li:share:7' + Math.floor(100000000000000000 + Math.random() * 900000000000000000);\n\nlet xSim = null;\nif (item.post_to_x) {\n  xSim = {\n    attempted: true,\n    simulated: true,\n    success: true,\n    tweet_id: fakeTweetId,\n    tweet_url: 'https://twitter.com/i/web/status/' + fakeTweetId,\n    text: item.x_text,\n    char_count: item.x_char_count,\n    is_long_tweet: item.is_long_tweet,\n    reply_settings: item.x_reply_settings,\n    media_attached: item.media_type !== 'NONE' ? item.media_type : null\n  };\n}\n\nlet liSim = null;\nif (item.post_to_linkedin) {\n  liSim = {\n    attempted: true,\n    simulated: true,\n    success: true,\n    post_urn: fakeLinkedinUrn,\n    post_url: 'https://www.linkedin.com/feed/update/' + fakeLinkedinUrn,\n    text: item.linkedin_text,\n    visibility: item.linkedin_visibility,\n    post_as: item.linkedin_post_as,\n    media_category: item.media_type\n  };\n}\n\nreturn [{\n  json: {\n    status: \"success (simulation)\",\n    mode: \"DRY_RUN\",\n    trigger_source: item.trigger_source || 'manual',\n    timestamp: new Date().toISOString(),\n    platforms: {\n      x: xSim,\n      linkedin: liSim\n    },\n    post_summary: {\n      text: item.post_text,\n      hashtags: item.hashtags || [],\n      media_type: item.media_type,\n      media_url: item.media_url || null,\n      article_url: item.article_url || null\n    },\n    message: \"Dry run completed successfully! All post validations, hashtag normalization, media download checks, and platform rules passed.\"\n  }\n}];"
+      },
+      "id": "simulate-platform-responses",
+      "name": "Simulate Platform Responses",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.post_to_x }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-post-to-x",
+      "name": "Post to X?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.media_type }}",
+              "rightValue": "IMAGE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $json.media_type }}",
+              "rightValue": "VIDEO",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      },
+      "id": "if-x-has-media",
+      "name": "X Has Media?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://upload.twitter.com/1.1/media/upload.json",
+        "sendBinaryData": true,
+        "binaryPropertyName": "data",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twitterOAuth1Api",
+        "options": {}
+      },
+      "id": "http-upload-media-x",
+      "name": "Upload Media to X (API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2160,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "text": "={{ $('Standardize Media Binary').item.json.x_text }}",
+        "additionalFields": {
+          "attachments": "={{ $json.media_id_string || '' }}"
+        }
+      },
+      "id": "twitter-post-media",
+      "name": "Create Tweet with Media (X)",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        300
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.x_text }}",
+        "additionalFields": {}
+      },
+      "id": "twitter-post-text",
+      "name": "Create Text Tweet (X)",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        460
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.post_to_linkedin }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-post-to-linkedin",
+      "name": "Post to LinkedIn?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route LinkedIn posting by media category\nconst item = $input.first()?.json || {};\nconst mediaType = (item.media_type || 'NONE').toUpperCase();\n\nlet route = 'text';\nif (mediaType === 'IMAGE') route = 'image';\nelse if (mediaType === 'ARTICLE') route = 'article';\nelse if (mediaType === 'VIDEO') route = 'video';\n\nreturn [{\n  json: {\n    ...item,\n    linkedin_route: route\n  }\n}];"
+      },
+      "id": "route-linkedin-type",
+      "name": "Route LinkedIn Content Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.linkedin_route }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-linkedin-image",
+      "name": "Is LinkedIn Image?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "postAs": "={{ $('Standardize Media Binary').item.json.linkedin_post_as }}",
+        "person": "={{ $('Standardize Media Binary').item.json.linkedin_person_urn || '' }}",
+        "organization": "={{ $('Standardize Media Binary').item.json.linkedin_organization_urn || '' }}",
+        "text": "={{ $('Standardize Media Binary').item.json.linkedin_text }}",
+        "shareMediaCategory": "IMAGE",
+        "binaryPropertyName": "data",
+        "additionalFields": {
+          "visibility": "={{ $('Standardize Media Binary').item.json.linkedin_visibility }}",
+          "title": "={{ $('Standardize Media Binary').item.json.post_text.slice(0, 80) }}"
+        }
+      },
+      "id": "linkedin-post-image",
+      "name": "Share Image Post (LinkedIn)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.linkedin_route }}",
+              "rightValue": "article",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-linkedin-article",
+      "name": "Is LinkedIn Article?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        780
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "postAs": "={{ $('Standardize Media Binary').item.json.linkedin_post_as }}",
+        "person": "={{ $('Standardize Media Binary').item.json.linkedin_person_urn || '' }}",
+        "organization": "={{ $('Standardize Media Binary').item.json.linkedin_organization_urn || '' }}",
+        "text": "={{ $('Standardize Media Binary').item.json.linkedin_text }}",
+        "shareMediaCategory": "ARTICLE",
+        "additionalFields": {
+          "originalUrl": "={{ $('Standardize Media Binary').item.json.article_url || $('Standardize Media Binary').item.json.media_url }}",
+          "visibility": "={{ $('Standardize Media Binary').item.json.linkedin_visibility }}",
+          "title": "={{ $('Standardize Media Binary').item.json.post_text.slice(0, 80) }}"
+        }
+      },
+      "id": "linkedin-post-article",
+      "name": "Share Article Link (LinkedIn)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        760
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.linkedin_route }}",
+              "rightValue": "video",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-linkedin-video",
+      "name": "Is LinkedIn Video?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/assets?action=registerUpload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n          \"registerUploadRequest\": {\n            \"recipes\": [\"urn:li:digitalmediaRecipe:feedshare-video\"],\n            \"owner\": $('Standardize Media Binary').item.json.linkedin_person_urn || \"urn:li:person:YOUR_URN\",\n            \"serviceRelationships\": [\n              {\n                \"relationshipType\": \"OWNER\",\n                \"identifier\": \"urn:li:userGeneratedContent\"\n              }\n            ]\n          }\n        }) }}",
+        "options": {}
+      },
+      "id": "linkedin-register-video-upload",
+      "name": "Register Video Upload (LinkedIn API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2400,
+        920
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "postAs": "={{ $('Standardize Media Binary').item.json.linkedin_post_as }}",
+        "person": "={{ $('Standardize Media Binary').item.json.linkedin_person_urn || '' }}",
+        "organization": "={{ $('Standardize Media Binary').item.json.linkedin_organization_urn || '' }}",
+        "text": "={{ $('Standardize Media Binary').item.json.linkedin_text }}",
+        "shareMediaCategory": "NONE",
+        "additionalFields": {
+          "visibility": "={{ $('Standardize Media Binary').item.json.linkedin_visibility }}"
+        }
+      },
+      "id": "linkedin-post-text",
+      "name": "Share Text Post (LinkedIn)",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        1080
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate Execution Results Across Platforms\nconst items = $input.all();\nconst baseInfo = $('Standardize Media Binary').first()?.json || {};\n\n// If coming from Simulation node, pass simulated output directly\nconst simOutput = $('Simulate Platform Responses').first()?.json;\nif (simOutput && simOutput.mode === 'DRY_RUN') {\n  return [{ json: { ...simOutput, trigger_source: baseInfo.trigger_source || simOutput.trigger_source || 'manual' } }];\n}\n\n// 1. Inspect X (Twitter) Results\nlet xResult = { attempted: baseInfo.post_to_x || false, success: false };\nif (baseInfo.post_to_x) {\n  try {\n    const textTweetNode = $('Create Text Tweet (X)').first()?.json;\n    const mediaTweetNode = $('Create Tweet with Media (X)').first()?.json;\n    const tweetData = textTweetNode || mediaTweetNode;\n    \n    if (tweetData && (tweetData.id || tweetData.data?.id)) {\n      const tweetId = tweetData.id || tweetData.data?.id;\n      xResult.success = true;\n      xResult.tweet_id = tweetId;\n      xResult.tweet_url = 'https://twitter.com/i/web/status/' + tweetId;\n      xResult.text = tweetData.text || tweetData.data?.text || baseInfo.x_text;\n    } else if (tweetData?.error) {\n      xResult.error = tweetData.error;\n    } else {\n      xResult.info = \"Submitted to X pipeline\";\n    }\n  } catch (e) {\n    xResult.error = e.message;\n  }\n}\n\n// 2. Inspect LinkedIn Results\nlet linkedinResult = { attempted: baseInfo.post_to_linkedin || false, success: false };\nif (baseInfo.post_to_linkedin) {\n  try {\n    const textNode = $('Share Text Post (LinkedIn)').first()?.json;\n    const imgNode = $('Share Image Post (LinkedIn)').first()?.json;\n    const artNode = $('Share Article Link (LinkedIn)').first()?.json;\n    const videoRegNode = $('Register Video Upload (LinkedIn API)').first()?.json;\n    \n    const liData = textNode || imgNode || artNode || videoRegNode;\n    if (liData && (liData.id || liData.urn || liData.value?.asset)) {\n      const postUrn = liData.id || liData.urn || liData.value?.asset;\n      linkedinResult.success = true;\n      linkedinResult.post_urn = postUrn;\n      linkedinResult.post_url = 'https://www.linkedin.com/feed/update/' + postUrn;\n      linkedinResult.visibility = baseInfo.linkedin_visibility || 'PUBLIC';\n    } else if (liData?.error) {\n      linkedinResult.error = liData.error;\n    } else {\n      linkedinResult.info = \"Submitted to LinkedIn pipeline\";\n    }\n  } catch (e) {\n    linkedinResult.error = e.message;\n  }\n}\n\n// 3. Determine Overall Status\nlet overallStatus = 'success';\nif (xResult.attempted && !xResult.success && linkedinResult.attempted && !linkedinResult.success) {\n  overallStatus = 'failed';\n} else if ((xResult.attempted && !xResult.success) || (linkedinResult.attempted && !linkedinResult.success)) {\n  overallStatus = 'partial_success';\n}\n\nconst responsePayload = {\n  status: overallStatus,\n  mode: \"LIVE\",\n  trigger_source: baseInfo.trigger_source || 'manual',\n  timestamp: new Date().toISOString(),\n  platforms: {\n    x: xResult,\n    linkedin: linkedinResult\n  },\n  post_summary: {\n    text: baseInfo.post_text,\n    hashtags: baseInfo.hashtags || [],\n    media_type: baseInfo.media_type,\n    media_url: baseInfo.media_url || null,\n    article_url: baseInfo.article_url || null\n  }\n};\n\nreturn [{\n  json: responsePayload\n}];"
+      },
+      "id": "aggregate-publishing-results",
+      "name": "Aggregate Publishing Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2700,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Social Media Auto-Publisher (X & LinkedIn)\n### Ingestion Endpoints:\n1. **Interactive Form:** `POST /form/social-media-publisher`\n2. **REST API Webhook:** `POST /webhook/social-media-publisher`\n   *(Use `/webhook-test/social-media-publisher` during canvas testing)*\n\n### Features:\n- **Modes:** Dry Run / Simulation Mode & Live Publishing Mode\n- **Media:** Text, Image, Video, and Article Link publishing\n- **Granular Controls:** LinkedIn visibility (Public / Connections), Post As (Person / Org)\n- **Formatting:** Automatic hashtag cleanup and character limit analysis\n- **Media Download:** Automatically fetches images/videos from remote URLs",
+        "height": 480,
+        "width": 360,
+        "color": 4
+      },
+      "id": "sticky-overview",
+      "name": "Overview Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -280,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Credentials Setup Guide\n1. **X (Twitter) Nodes:**\n   - Configure `twitterOAuth2Api` credential (or OAuth 1.0a for media uploads).\n   - Scopes needed: `tweet.read`, `tweet.write`, `users.read`.\n2. **LinkedIn Nodes:**\n   - Configure `linkedInOAuth2Api` credential.\n   - Scopes needed: `w_member_social` (personal profile) or `w_organization_social` (company page).\n3. **Dry Run Testing:**\n   - Leave `dry_run: true` (or select \"Dry Run\" in the Form) to test without credentials.",
+        "height": 320,
+        "width": 460,
+        "color": 7
+      },
+      "id": "sticky-credentials",
+      "name": "Credentials Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        -180
+      ]
+    }
+  ],
+  "connections": {
+    "On Form Submission": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Validate Post Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Validate Post Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute Workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Test Data": {
+      "main": [
+        [
+          {
+            "node": "Normalize & Validate Post Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize & Validate Post Input": {
+      "main": [
+        [
+          {
+            "node": "Media Download Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Media Download Needed?": {
+      "main": [
+        [
+          {
+            "node": "Download Media Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Standardize Media Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Media Binary": {
+      "main": [
+        [
+          {
+            "node": "Standardize Media Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Standardize Media Binary": {
+      "main": [
+        [
+          {
+            "node": "Is Dry Run Mode?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Dry Run Mode?": {
+      "main": [
+        [
+          {
+            "node": "Simulate Platform Responses",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Post to X?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to LinkedIn?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simulate Platform Responses": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to X?": {
+      "main": [
+        [
+          {
+            "node": "X Has Media?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X Has Media?": {
+      "main": [
+        [
+          {
+            "node": "Upload Media to X (API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Text Tweet (X)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Media to X (API)": {
+      "main": [
+        [
+          {
+            "node": "Create Tweet with Media (X)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Tweet with Media (X)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Text Tweet (X)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn?": {
+      "main": [
+        [
+          {
+            "node": "Route LinkedIn Content Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route LinkedIn Content Type": {
+      "main": [
+        [
+          {
+            "node": "Is LinkedIn Image?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is LinkedIn Image?": {
+      "main": [
+        [
+          {
+            "node": "Share Image Post (LinkedIn)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is LinkedIn Article?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is LinkedIn Article?": {
+      "main": [
+        [
+          {
+            "node": "Share Article Link (LinkedIn)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is LinkedIn Video?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is LinkedIn Video?": {
+      "main": [
+        [
+          {
+            "node": "Register Video Upload (LinkedIn API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Share Text Post (LinkedIn)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Image Post (LinkedIn)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Article Link (LinkedIn)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Register Video Upload (LinkedIn API)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Share Text Post (LinkedIn)": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Publishing Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Publishing Results": {
+      "main": []
+    }
+  }
+}

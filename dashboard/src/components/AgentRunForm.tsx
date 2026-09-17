@@ -2,7 +2,11 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload, RefreshCw, Megaphone, ExternalLink } from "lucide-react";
+import { 
+  Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload, 
+  RefreshCw, Megaphone, ExternalLink, Share2, Globe, Image as ImageIcon, 
+  Video, FileText, ChevronDown, ChevronUp, Hash, SlidersHorizontal, Check 
+} from "lucide-react";
 
 interface AgentRunFormProps {
   agentId: string;
@@ -13,6 +17,24 @@ interface AgentRunFormProps {
   defaultCategory?: string;
   defaultLanguage?: string;
 }
+
+const quickSocialTemplates = [
+  {
+    label: "Product Announcement",
+    text: "Excited to unveil our next-generation autonomous AI agents at Cortana.AI! Delivering 24/7 intelligent workflows, prospect research, and auto-generated content for modern teams.",
+    hashtags: "#AI #AutonomousAgents #FutureOfWork #TechInnovation",
+  },
+  {
+    label: "Workflow Tip",
+    text: "Manual data entry and delayed prospect follow-ups are costing businesses 15+ hours every week. Here's how autonomous agent orchestration eliminates the bottleneck instantly ⬇️",
+    hashtags: "#Automation #Productivity #BusinessGrowth #NoCode",
+  },
+  {
+    label: "Case Study / ROI",
+    text: "How a local enterprise cut lead response times from 4 hours to 45 seconds using automated agent pipelines with n8n and Cortana. Full breakdown:",
+    hashtags: "#CaseStudy #CustomerSuccess #AIWorkflows #ROI",
+  },
+];
 
 function parseRelaxedJson(raw: string): any {
   if (!raw || typeof raw !== "string") return null;
@@ -68,9 +90,23 @@ export function AgentRunForm({
   const [rawPastedJson, setRawPastedJson] = useState("");
 
   // Marketing agent (Maya) state
+  const [marketingMode, setMarketingMode] = useState<"research" | "publisher">("research");
   const [focusTopic, setFocusTopic] = useState("Hawaii business & AI automation");
   const [targetAudience, setTargetAudience] = useState("Local business owners, entrepreneurs, and service professionals");
   const [additionalContext, setAdditionalContext] = useState("Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows");
+
+  // Maya Social Publisher state
+  const [postText, setPostText] = useState("");
+  const [platforms, setPlatforms] = useState<"both" | "x" | "linkedin">("both");
+  const [mediaType, setMediaType] = useState<"NONE" | "IMAGE" | "VIDEO" | "ARTICLE">("NONE");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [articleUrl, setArticleUrl] = useState("");
+  const [hashtags, setHashtags] = useState("#AI #Automation #Productivity #Agents");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [linkedinVisibility, setLinkedinVisibility] = useState<"PUBLIC" | "CONNECTIONS">("PUBLIC");
+  const [linkedinPostAs, setLinkedinPostAs] = useState<"person" | "organization">("person");
+  const [linkedinOrganizationUrn, setLinkedinOrganizationUrn] = useState("");
+  const [xReplySettings, setXReplySettings] = useState<"everyone" | "following" | "mentionedUsers">("everyone");
 
   // Article writer state
   const [keywords, setKeywords] = useState(defaultKeywords);
@@ -151,14 +187,35 @@ export function AgentRunForm({
           };
         }
       } else if (isMarketing) {
-        if (!focusTopic.trim()) {
-          throw new Error("Focus topic is required.");
+        if (marketingMode === "publisher") {
+          if (!postText.trim()) {
+            throw new Error("Post copy/text is required.");
+          }
+          requestBody = {
+            mode: "publisher",
+            postText: postText.trim(),
+            platforms,
+            mediaType,
+            mediaUrl: mediaUrl.trim(),
+            articleUrl: articleUrl.trim(),
+            hashtags: hashtags.trim(),
+            dryRun: false,
+            linkedinVisibility,
+            linkedinPostAs,
+            linkedinOrganizationUrn: linkedinOrganizationUrn.trim(),
+            xReplySettings,
+          };
+        } else {
+          if (!focusTopic.trim()) {
+            throw new Error("Focus topic is required.");
+          }
+          requestBody = {
+            mode: "research",
+            focusTopic: focusTopic.trim(),
+            targetAudience: targetAudience.trim(),
+            additionalContext: additionalContext.trim(),
+          };
         }
-        requestBody = {
-          focusTopic: focusTopic.trim(),
-          targetAudience: targetAudience.trim(),
-          additionalContext: additionalContext.trim(),
-        };
       } else {
         requestBody = {
           keywords,
@@ -233,34 +290,57 @@ export function AgentRunForm({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2.5">
           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme.iconBg} text-white shadow-sm shrink-0`}>
-            {isEmail ? <Mail className="h-4 w-4" /> : isMarketing ? <Megaphone className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
+            {isEmail ? <Mail className="h-4 w-4" /> : isMarketing ? (marketingMode === "publisher" ? <Share2 className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />) : <Sparkles className="h-4 w-4" />}
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
               {isEmail
                 ? "Run Sales Outreach Workflow"
                 : isMarketing
-                ? "Run Social Media Research Workflow"
+                ? marketingMode === "publisher"
+                  ? "Run Social Media Publisher Workflow"
+                  : "Run Social Media Research Workflow"
                 : "Run Agent Workflow"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isEmail 
                 ? "Autonomous prospect research, tailored drafting, and approval tracking"
                 : isMarketing
-                ? "Live YouTube Shorts scraping, Google Search Trends, and viral video ideation"
+                ? marketingMode === "publisher"
+                  ? "Cross-post and publish content directly to X (Twitter) & LinkedIn with rich media"
+                  : "Live YouTube Shorts scraping, Google Search Trends, and viral video ideation"
                 : "Autonomous workflow execution with live progress"}
             </p>
           </div>
         </div>
 
-
+        {isMarketing && (
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setMarketingMode("research")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${marketingMode === "research" ? "bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-xs font-semibold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}
+            >
+              <Megaphone className="h-3.5 w-3.5" />
+              Social Research
+            </button>
+            <button
+              type="button"
+              onClick={() => setMarketingMode("publisher")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${marketingMode === "publisher" ? "bg-white dark:bg-slate-700 text-purple-700 dark:text-purple-300 shadow-xs font-semibold" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"}`}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Social Media Poster
+            </button>
+          </div>
+        )}
 
         {isEmail && (
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs self-start sm:self-auto">
             <button
               type="button"
               onClick={() => setEmailMode("single")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${emailMode === "single" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${emailMode === "single" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
             >
               <Users className="h-3.5 w-3.5" />
               Single Prospect
@@ -268,7 +348,7 @@ export function AgentRunForm({
             <button
               type="button"
               onClick={() => setEmailMode("upload")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${emailMode === "upload" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${emailMode === "upload" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
             >
               <Upload className="h-3.5 w-3.5" />
               JSON Upload
@@ -276,7 +356,7 @@ export function AgentRunForm({
             <button
               type="button"
               onClick={() => setEmailMode("followup")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all ${emailMode === "followup" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium transition-all cursor-pointer ${emailMode === "followup" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-50 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Gmail Follow-ups
@@ -459,58 +539,314 @@ export function AgentRunForm({
               </div>
             </div>
           )) : isMarketing ? (
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="focusTopic" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  Focus Topic & Niche <span className="text-purple-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="focusTopic"
-                  name="focusTopic"
-                  value={focusTopic}
-                  onChange={(e) => setFocusTopic(e.target.value)}
-                  placeholder="e.g. Hawaii business & AI automation"
-                  className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
-                  required
-                  disabled={isLoading}
-                />
-                <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                  Scrapes YouTube Shorts and Google Search Trends for real view metrics and viral angles.
-                </p>
-              </div>
+            marketingMode === "publisher" ? (
+              <div className="space-y-4">
+                {/* Quick Templates */}
+                <div className="rounded-lg border border-purple-100 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3" />
+                      Quick Content Starters
+                    </span>
+                    <span className="text-[10px] text-slate-400">Click to autofill</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {quickSocialTemplates.map((tpl, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => {
+                          setPostText(tpl.text);
+                          setHashtags(tpl.hashtags);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-purple-300 dark:hover:border-purple-700 hover:text-purple-700 dark:hover:text-purple-300 shadow-2xs transition-all cursor-pointer"
+                      >
+                        <span>{tpl.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div>
-                <label htmlFor="targetAudience" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  Target Audience <span className="text-[11px] font-normal text-slate-400 normal-case">(Optional)</span>
-                </label>
-                <input
-                  type="text"
-                  id="targetAudience"
-                  name="targetAudience"
-                  value={targetAudience}
-                  onChange={(e) => setTargetAudience(e.target.value)}
-                  placeholder="e.g. Local business owners, entrepreneurs, and service professionals"
-                  className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
-                  disabled={isLoading}
-                />
-              </div>
+                {/* Target Platforms */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Platforms <span className="text-purple-600">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "both", label: "Both X & LinkedIn", icon: Globe },
+                      { id: "x", label: "X (Twitter) Only", icon: Share2 },
+                      { id: "linkedin", label: "LinkedIn Only", icon: Globe },
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setPlatforms(item.id as any)}
+                        className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                          platforms === item.id
+                            ? "bg-purple-600 text-white border-purple-600 shadow-xs"
+                            : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        <item.icon className="h-3.5 w-3.5" />
+                        <span className="truncate">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div>
-                <label htmlFor="additionalContext" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  Additional Context & Strategic Focus <span className="text-[11px] font-normal text-slate-400 normal-case">(Optional)</span>
-                </label>
-                <textarea
-                  id="additionalContext"
-                  rows={3}
-                  value={additionalContext}
-                  onChange={(e) => setAdditionalContext(e.target.value)}
-                  placeholder="e.g. Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows"
-                  className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
-                  disabled={isLoading}
-                />
+                {/* Post Copy / Content */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="postText" className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Post Copy / Content <span className="text-purple-600">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-mono ${
+                        (platforms === "both" || platforms === "x") && postText.length > 280
+                          ? "text-rose-600 font-bold dark:text-rose-400"
+                          : "text-slate-400"
+                      }`}>
+                        {postText.length} chars
+                        {(platforms === "both" || platforms === "x") && (
+                          <span className="ml-1 text-[10px] opacity-80">(X max: 280)</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  <textarea
+                    id="postText"
+                    rows={4}
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value)}
+                    placeholder="Write high-impact social copy, insights, product news, or thought leadership..."
+                    className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* Media Type & Attachment Links */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Media Attachment Type
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                    {[
+                      { id: "NONE", label: "Text Only", icon: FileText },
+                      { id: "IMAGE", label: "Image", icon: ImageIcon },
+                      { id: "VIDEO", label: "Video", icon: Video },
+                      { id: "ARTICLE", label: "Article Link", icon: ExternalLink },
+                    ].map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setMediaType(m.id as any)}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                          mediaType === m.id
+                            ? "bg-purple-100 text-purple-900 dark:bg-purple-950/70 dark:text-purple-200 border-purple-400 font-semibold"
+                            : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <m.icon className="h-3.5 w-3.5" />
+                        <span>{m.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Conditionally reveal URL input for media */}
+                  {(mediaType === "IMAGE" || mediaType === "VIDEO") && (
+                    <div className="mt-2">
+                      <label htmlFor="mediaUrl" className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        {mediaType === "IMAGE" ? "Image Direct URL (.jpg, .png, .webp)" : "Video Direct URL (.mp4, .mov)"}
+                      </label>
+                      <input
+                        type="url"
+                        id="mediaUrl"
+                        value={mediaUrl}
+                        onChange={(e) => setMediaUrl(e.target.value)}
+                        placeholder="https://example.com/asset.jpg"
+                        className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+
+                  {mediaType === "ARTICLE" && (
+                    <div className="mt-2">
+                      <label htmlFor="articleUrl" className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                        Article / Webpage Link URL
+                      </label>
+                      <input
+                        type="url"
+                        id="articleUrl"
+                        value={articleUrl}
+                        onChange={(e) => setArticleUrl(e.target.value)}
+                        placeholder="https://cortana.ai/insights/autonomous-agents"
+                        className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1`}
+                        disabled={isLoading}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Hashtags / Tags */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="hashtags" className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Hashtags & Tags <span className="text-[11px] font-normal text-slate-400 normal-case">(Optional)</span>
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <Hash className="h-4 w-4 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      id="hashtags"
+                      value={hashtags}
+                      onChange={(e) => setHashtags(e.target.value)}
+                      placeholder="#AI #Automation #Productivity #HawaiiTech"
+                      className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 pl-9 pr-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Separate tags by space or comma. Maya formats them cleanly at the end of each platform post.
+                  </p>
+                </div>
+
+                {/* Advanced Platform Settings Collapsible */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors cursor-pointer"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    <span>Advanced Platform Rules</span>
+                    {showAdvanced ? <ChevronUp className="h-3.5 w-3.5 ml-0.5" /> : <ChevronDown className="h-3.5 w-3.5 ml-0.5" />}
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="mt-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 p-4 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">
+                            LinkedIn Visibility
+                          </label>
+                          <select
+                            value={linkedinVisibility}
+                            onChange={(e) => setLinkedinVisibility(e.target.value as any)}
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="PUBLIC">Public (Anyone on or off LinkedIn)</option>
+                            <option value="CONNECTIONS">Connections Only</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">
+                            LinkedIn Post As
+                          </label>
+                          <select
+                            value={linkedinPostAs}
+                            onChange={(e) => setLinkedinPostAs(e.target.value as any)}
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="person">Personal Profile</option>
+                            <option value="organization">Organization / Company Page</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {linkedinPostAs === "organization" && (
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">
+                              LinkedIn Organization URN (ID)
+                            </label>
+                            <input
+                              type="text"
+                              value={linkedinOrganizationUrn}
+                              onChange={(e) => setLinkedinOrganizationUrn(e.target.value)}
+                              placeholder="e.g. 12345678"
+                              className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100"
+                            />
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1">
+                            X / Twitter Reply Permissions
+                          </label>
+                          <select
+                            value={xReplySettings}
+                            onChange={(e) => setXReplySettings(e.target.value as any)}
+                            className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100"
+                          >
+                            <option value="everyone">Everyone can reply</option>
+                            <option value="following">People you follow</option>
+                            <option value="mentionedUsers">Only mentioned users</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="focusTopic" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Focus Topic & Niche <span className="text-purple-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="focusTopic"
+                    name="focusTopic"
+                    value={focusTopic}
+                    onChange={(e) => setFocusTopic(e.target.value)}
+                    placeholder="e.g. Hawaii business & AI automation"
+                    className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
+                    required
+                    disabled={isLoading}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                    Scrapes YouTube Shorts and Google Search Trends for real view metrics and viral angles.
+                  </p>
+                </div>
+
+                <div>
+                  <label htmlFor="targetAudience" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Audience <span className="text-[11px] font-normal text-slate-400 normal-case">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="targetAudience"
+                    name="targetAudience"
+                    value={targetAudience}
+                    onChange={(e) => setTargetAudience(e.target.value)}
+                    placeholder="e.g. Local business owners, entrepreneurs, and service professionals"
+                    className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="additionalContext" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Additional Context & Strategic Focus <span className="text-[11px] font-normal text-slate-400 normal-case">(Optional)</span>
+                  </label>
+                  <textarea
+                    id="additionalContext"
+                    rows={3}
+                    value={additionalContext}
+                    onChange={(e) => setAdditionalContext(e.target.value)}
+                    placeholder="e.g. Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows"
+                    className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1 disabled:bg-slate-100`}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+            )
           ) : (
             <>
               <div>
@@ -600,7 +936,9 @@ export function AgentRunForm({
                 {isEmail
                   ? "Prospect Research & Drafting"
                   : isMarketing
-                  ? "Live Scraped Research & Video Ideation"
+                  ? marketingMode === "publisher"
+                    ? "Live Social Media Publishing"
+                    : "Live Scraped Research & Video Ideation"
                   : "Autonomous Research & Generation"}
               </span>
             </div>
@@ -616,7 +954,9 @@ export function AgentRunForm({
                     {isEmail && emailMode === "followup"
                       ? "Scanning Gmail threads..."
                       : isMarketing
-                      ? "Scraping & Synthesizing Trends..."
+                      ? marketingMode === "publisher"
+                        ? "Publishing to platforms..."
+                        : "Scraping & Synthesizing Trends..."
                       : "Executing Workflow..."}
                   </span>
                 </>
@@ -629,7 +969,9 @@ export function AgentRunForm({
                         ? "Run Gmail Follow-up Scan"
                         : "Launch Outreach Workflow"
                       : isMarketing
-                      ? "Launch Research Workflow"
+                      ? marketingMode === "publisher"
+                        ? "Publish to Platforms"
+                        : "Launch Research Workflow"
                       : "Launch Workflow"}
                   </span>
                 </>

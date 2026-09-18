@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { 
   Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload, 
   RefreshCw, Megaphone, ExternalLink, Share2, Globe, Image as ImageIcon, 
-  Video, FileText, ChevronDown, ChevronUp, Hash, SlidersHorizontal, Check 
+  Video, FileText, ChevronDown, ChevronUp, Hash, SlidersHorizontal, Check,
+  FolderUp, Link2, X
 } from "lucide-react";
 
 interface AgentRunFormProps {
@@ -108,6 +109,81 @@ export function AgentRunForm({
   const [linkedinOrganizationUrn, setLinkedinOrganizationUrn] = useState("");
   const [xReplySettings, setXReplySettings] = useState<"everyone" | "following" | "mentionedUsers">("everyone");
 
+  // Maya Media File Upload / Import state (kept strictly in browser memory)
+  const [mediaSource, setMediaSource] = useState<"file" | "url">("file");
+  const [uploadedMedia, setUploadedMedia] = useState<{
+    file: File;
+    name: string;
+    size: number;
+    previewUrl: string;
+    fileType: string;
+    base64: string;
+  } | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
+  const mediaFileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleMediaFileUpload = (file: File) => {
+    if (!file) return;
+    const MAX_SIZE = 100 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      setStatusMessage({
+        type: "error",
+        text: "File exceeds 100MB limit.",
+      });
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setIsUploadingMedia(true);
+    setStatusMessage(null);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Data = (reader.result as string) || "";
+      setUploadedMedia({
+        file,
+        name: file.name,
+        size: file.size,
+        previewUrl,
+        fileType: file.type || (mediaType === "VIDEO" ? "video/mp4" : "image/jpeg"),
+        base64: base64Data,
+      });
+      setStatusMessage({
+        type: "success",
+        text: `"${file.name}" loaded into browser memory!`,
+      });
+      setIsUploadingMedia(false);
+    };
+    reader.onerror = () => {
+      setUploadedMedia(null);
+      setStatusMessage({
+        type: "error",
+        text: "Failed to read file into browser memory.",
+      });
+      setIsUploadingMedia(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveUploadedMedia = () => {
+    if (uploadedMedia?.previewUrl) {
+      try {
+        URL.revokeObjectURL(uploadedMedia.previewUrl);
+      } catch {}
+    }
+    setUploadedMedia(null);
+    setMediaUrl("");
+    if (mediaFileInputRef.current) {
+      mediaFileInputRef.current.value = "";
+    }
+  };
+
   // Article writer state
   const [keywords, setKeywords] = useState(defaultKeywords);
   const [category, setCategory] = useState(defaultCategory);
@@ -191,15 +267,41 @@ export function AgentRunForm({
           if (!postText.trim()) {
             throw new Error("Post copy/text is required.");
           }
+
+          let finalMediaUrl = "";
+          let mediaBase64 = "";
+          let mediaFileName = "";
+          let mediaMimeType = "";
+
+          if (mediaType === "IMAGE" || mediaType === "VIDEO") {
+            if (mediaSource === "file" && uploadedMedia?.base64) {
+              mediaBase64 = uploadedMedia.base64;
+              mediaFileName = uploadedMedia.name;
+              mediaMimeType = uploadedMedia.fileType;
+            } else {
+              finalMediaUrl = mediaUrl.trim();
+            }
+          }
+
+          let finalArticleUrl = "";
+          if (mediaType === "ARTICLE") {
+            finalArticleUrl = articleUrl.trim();
+            if (!finalArticleUrl) {
+              throw new Error("Please enter an Article / Webpage URL.");
+            }
+          }
+
           requestBody = {
             mode: "publisher",
             postText: postText.trim(),
             platforms,
             mediaType,
-            mediaUrl: mediaUrl.trim(),
-            articleUrl: articleUrl.trim(),
+            mediaUrl: finalMediaUrl,
+            mediaBase64,
+            fileName: mediaFileName,
+            mediaMimeType,
+            articleUrl: finalArticleUrl,
             hashtags: hashtags.trim(),
-            dryRun: false,
             linkedinVisibility,
             linkedinPostAs,
             linkedinOrganizationUrn: linkedinOrganizationUrn.trim(),
@@ -641,7 +743,12 @@ export function AgentRunForm({
                       <button
                         key={m.id}
                         type="button"
-                        onClick={() => setMediaType(m.id as any)}
+                        onClick={() => {
+                          setMediaType(m.id as any);
+                          if (m.id === "ARTICLE" || m.id === "NONE") {
+                            handleRemoveUploadedMedia();
+                          }
+                        }}
                         className={`flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
                           mediaType === m.id
                             ? "bg-purple-100 text-purple-900 dark:bg-purple-950/70 dark:text-purple-200 border-purple-400 font-semibold"
@@ -654,21 +761,186 @@ export function AgentRunForm({
                     ))}
                   </div>
 
-                  {/* Conditionally reveal URL input for media */}
+                  {/* Media Source & Attachment (Local File Import OR Web Link) */}
                   {(mediaType === "IMAGE" || mediaType === "VIDEO") && (
-                    <div className="mt-2">
-                      <label htmlFor="mediaUrl" className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
-                        {mediaType === "IMAGE" ? "Image Direct URL (.jpg, .png, .webp)" : "Video Direct URL (.mp4, .mov)"}
-                      </label>
-                      <input
-                        type="url"
-                        id="mediaUrl"
-                        value={mediaUrl}
-                        onChange={(e) => setMediaUrl(e.target.value)}
-                        placeholder="https://example.com/asset.jpg"
-                        className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1`}
-                        disabled={isLoading}
-                      />
+                    <div className="mt-3 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                          {mediaType === "IMAGE" ? "Image Source" : "Video Source"}
+                        </span>
+                        <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 text-xs shadow-2xs self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => setMediaSource("file")}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                              mediaSource === "file"
+                                ? "bg-purple-600 text-white shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            <FolderUp className="h-3.5 w-3.5" />
+                            <span>Import Local File</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMediaSource("url")}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                              mediaSource === "url"
+                                ? "bg-purple-600 text-white shadow-xs"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                            }`}
+                          >
+                            <Link2 className="h-3.5 w-3.5" />
+                            <span>Direct Web Link</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {mediaSource === "file" ? (
+                        <div>
+                          {uploadedMedia ? (
+                            <div className="rounded-xl border border-purple-200 dark:border-purple-900/60 bg-white dark:bg-slate-900 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                              <div className="flex items-center gap-3 min-w-0">
+                                {mediaType === "IMAGE" ? (
+                                  <img
+                                    src={uploadedMedia.previewUrl}
+                                    alt={uploadedMedia.name}
+                                    className="h-16 w-16 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0 shadow-2xs"
+                                  />
+                                ) : (
+                                  <div className="h-16 w-24 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black shrink-0 flex items-center justify-center shadow-2xs">
+                                    <video src={uploadedMedia.previewUrl} className="h-full w-full object-cover" />
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[200px] sm:max-w-xs">
+                                      {uploadedMedia.name}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                      <Check className="h-2.5 w-2.5" />
+                                      Ready to Publish
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    {formatFileSize(uploadedMedia.size)} • In browser memory (not saved to disk)
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-center">
+                                <input
+                                  type="file"
+                                  ref={mediaFileInputRef}
+                                  accept={mediaType === "IMAGE" ? "image/*" : "video/*"}
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleMediaFileUpload(file);
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => mediaFileInputRef.current?.click()}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                                >
+                                  Change
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveUploadedMedia}
+                                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => mediaFileInputRef.current?.click()}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleMediaFileUpload(file);
+                              }}
+                              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                                isUploadingMedia
+                                  ? "border-purple-400 bg-purple-50/50 dark:bg-purple-950/20"
+                                  : "border-slate-300 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-500 bg-white dark:bg-slate-900/60 hover:bg-purple-50/20 dark:hover:bg-purple-950/10"
+                              }`}
+                            >
+                              <input
+                                type="file"
+                                ref={mediaFileInputRef}
+                                accept={mediaType === "IMAGE" ? "image/*" : "video/*"}
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleMediaFileUpload(file);
+                                }}
+                              />
+                              {isUploadingMedia ? (
+                                <div className="flex flex-col items-center justify-center py-2">
+                                  <Loader2 className="h-7 w-7 text-purple-600 animate-spin mb-2" />
+                                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    Reading media file into browser memory...
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 mt-0.5">Client-side only • Never saved to disk</span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center justify-center">
+                                  <div className="h-11 w-11 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-2.5">
+                                    <FolderUp className="h-5 w-5" />
+                                  </div>
+                                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    Click to browse or drag & drop {mediaType === "IMAGE" ? "an image" : "a video"}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                                    {mediaType === "IMAGE"
+                                      ? "Supports PNG, JPG, WEBP, GIF (up to 100MB)"
+                                      : "Supports MP4, MOV, WEBM (up to 100MB)"}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <label htmlFor="mediaUrl" className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                            {mediaType === "IMAGE" ? "Image Direct URL (.jpg, .png, .webp)" : "Video Direct URL (.mp4, .mov)"}
+                          </label>
+                          <input
+                            type="url"
+                            id="mediaUrl"
+                            value={mediaUrl}
+                            onChange={(e) => setMediaUrl(e.target.value)}
+                            placeholder="https://example.com/asset.jpg"
+                            className={`w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 ${theme.focusRing} focus:outline-none focus:ring-1`}
+                            disabled={isLoading}
+                          />
+                          {mediaUrl && (
+                            <div className="mt-2 flex items-center gap-2.5 p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                              {mediaType === "IMAGE" ? (
+                                <img
+                                  src={mediaUrl}
+                                  alt="URL Preview"
+                                  className="h-10 w-10 rounded object-cover border border-slate-200 dark:border-slate-700 shrink-0"
+                                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                                />
+                              ) : (
+                                <Video className="h-6 w-6 text-purple-600 shrink-0" />
+                              )}
+                              <span className="text-[11px] font-mono text-slate-500 truncate max-w-sm">{mediaUrl}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 

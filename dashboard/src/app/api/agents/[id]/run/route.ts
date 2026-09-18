@@ -488,6 +488,9 @@ export async function POST(
     let mediaUrl = "";
     let articleUrl = "";
     let hashtags = "";
+    let mediaBase64 = "";
+    let fileName = "";
+    let mediaMimeType = "";
     let linkedinVisibility = "PUBLIC";
     let linkedinPostAs = "person";
     let linkedinOrganizationUrn = "";
@@ -515,6 +518,9 @@ export async function POST(
         mediaUrl = body.mediaUrl || body.media_url || body["Media URL"] || body["Media URL (Image or Video Direct Link)"] || "";
         articleUrl = body.articleUrl || body.article_url || body["Article / Link URL"] || body.url || "";
         hashtags = body.hashtags || body.tags || body["Hashtags / Tags"] || "";
+        mediaBase64 = body.mediaBase64 || body.media_base64 || "";
+        fileName = body.fileName || body.file_name || "";
+        mediaMimeType = body.mediaMimeType || body.media_mime_type || "";
         
         linkedinVisibility = body.linkedinVisibility || body.linkedin_visibility || body["LinkedIn Visibility"] || "PUBLIC";
         linkedinPostAs = body.linkedinPostAs || body.linkedin_post_as || body["LinkedIn Post As"] || "person";
@@ -548,6 +554,9 @@ export async function POST(
         mediaUrl = (formData.get("mediaUrl") as string) || (formData.get("media_url") as string) || "";
         articleUrl = (formData.get("articleUrl") as string) || (formData.get("article_url") as string) || "";
         hashtags = (formData.get("hashtags") as string) || (formData.get("tags") as string) || "";
+        mediaBase64 = (formData.get("mediaBase64") as string) || (formData.get("media_base64") as string) || "";
+        fileName = (formData.get("fileName") as string) || (formData.get("file_name") as string) || "";
+        mediaMimeType = (formData.get("mediaMimeType") as string) || (formData.get("media_mime_type") as string) || "";
         linkedinVisibility = (formData.get("linkedinVisibility") as string) || (formData.get("linkedin_visibility") as string) || "PUBLIC";
         linkedinPostAs = (formData.get("linkedinPostAs") as string) || (formData.get("linkedin_post_as") as string) || "person";
         linkedinOrganizationUrn = (formData.get("linkedinOrganizationUrn") as string) || (formData.get("linkedin_organization_urn") as string) || "";
@@ -603,12 +612,22 @@ export async function POST(
       taskDesc = `Platforms: ${targetPlatformUpper} | Media: ${mediaType} | Mode: Live Publish`;
       runInput = `Platforms: ${targetPlatformUpper}\nMedia: ${mediaType}\nMode: Live Publish\nText:\n${cleanPostText}${hashtags ? `\n\nHashtags: ${hashtags}` : ""}${mediaUrl ? `\nMedia URL: ${mediaUrl}` : ""}${articleUrl ? `\nArticle URL: ${articleUrl}` : ""}`;
 
+      const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
+      const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+      
+      let finalMediaUrl = "";
+      if (mediaType === "IMAGE" || mediaType === "VIDEO") {
+        finalMediaUrl = mediaUrl && mediaUrl.startsWith("/") ? `${proto}://${host}${mediaUrl}` : mediaUrl;
+      }
+
+      const finalArticleUrl = mediaType === "ARTICLE" ? articleUrl.trim() : "";
+
       payload = {
         post_text: cleanPostText,
         platforms,
         media_type: mediaType,
-        media_url: mediaUrl,
-        article_url: articleUrl,
+        media_url: finalMediaUrl,
+        article_url: finalArticleUrl,
         hashtags,
         dry_run: false,
         mode: "live",
@@ -621,13 +640,19 @@ export async function POST(
         "Target Platforms": platforms === "both" ? "Both X and LinkedIn" : platforms === "x" ? "X (Twitter) Only" : "LinkedIn Only",
         "Media Type": mediaType === "NONE" ? "Text Only" : mediaType === "IMAGE" ? "Image" : mediaType === "VIDEO" ? "Video" : "Article Link",
         "Execution Mode": "Live Publish (Post to Platforms)",
-        "Media URL (Image or Video Direct Link)": mediaUrl,
-        "Article / Link URL": articleUrl,
+        "Media URL (Image or Video Direct Link)": finalMediaUrl,
+        "Article / Link URL": finalArticleUrl,
         "Hashtags / Tags": hashtags,
         "LinkedIn Visibility": linkedinVisibility,
         "LinkedIn Post As": linkedinPostAs === "organization" ? "Organization" : "Person",
         "LinkedIn Organization URN": linkedinOrganizationUrn,
         "X / Twitter Reply Settings": xReplySettings,
+        ...((mediaType === "IMAGE" || mediaType === "VIDEO") && mediaBase64 ? {
+          media_base64: mediaBase64,
+          file_name: fileName || "media",
+          fileName: fileName || "media",
+          media_mime_type: mediaMimeType || (mediaType === "VIDEO" ? "video/mp4" : "image/jpeg"),
+        } : {}),
       };
     } else if (isMarketingWorkflow) {
       const topic = focusTopic.trim() || "Hawaii business & AI automation";

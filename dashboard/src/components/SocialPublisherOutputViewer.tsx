@@ -277,10 +277,14 @@ export function SocialPublisherOutputViewer({
                         {renderTextWithHashtags(xData?.text || (postText + (hashtags.length ? `\n\n${hashtags.join(" ")}` : "")))}
                       </div>
 
-                      {/* Media Link / Image Preview if available */}
+                      {/* Media Link / Image or Video Preview if available */}
                       {mediaUrl && (
-                        <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-48 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <img src={mediaUrl} alt="Attached media" className="object-cover max-h-48 w-full" />
+                        <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-56 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          {mediaType === "VIDEO" || /\.(mp4|mov|webm)(\?.*)?$/i.test(mediaUrl) ? (
+                            <video src={mediaUrl} controls className="max-h-56 w-full object-contain bg-black" />
+                          ) : (
+                            <img src={mediaUrl} alt="Attached media" className="object-cover max-h-48 w-full" />
+                          )}
                         </div>
                       )}
 
@@ -388,10 +392,14 @@ export function SocialPublisherOutputViewer({
                         {renderTextWithHashtags(liData?.text || (postText + (hashtags.length ? `\n\n${hashtags.join(" ")}` : "")))}
                       </div>
 
-                      {/* Media Link / Image Preview if available */}
+                      {/* Media Link / Image or Video Preview if available */}
                       {mediaUrl && (
-                        <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-48 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <img src={mediaUrl} alt="Attached media" className="object-cover max-h-48 w-full" />
+                        <div className="mt-3 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 max-h-56 bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                          {mediaType === "VIDEO" || /\.(mp4|mov|webm)(\?.*)?$/i.test(mediaUrl) ? (
+                            <video src={mediaUrl} controls className="max-h-56 w-full object-contain bg-black" />
+                          ) : (
+                            <img src={mediaUrl} alt="Attached media" className="object-cover max-h-48 w-full" />
+                          )}
                         </div>
                       )}
 

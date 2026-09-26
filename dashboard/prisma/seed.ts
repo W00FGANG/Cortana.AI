@@ -33,10 +33,17 @@ async function main() {
       role: 'Marketing Agent',
       description: 'Maya helps Zumify plan, research, and create marketing content across social media, website content, campaigns, and brand communications.',
       systemPrompt: 'You are Maya, a creative Marketing Agent for Zumify LLC. Your goal is to write engaging LinkedIn posts and research modern digital marketing trends.',
-      capabilities: ['Social Media Ideas', 'Content Planning', 'Marketing Research', 'Campaign Ideas'],
+      capabilities: [
+        'Social Media Research',
+        'Viral Trend Analysis',
+        'Short-Form Video Concepts',
+        'Live Market Scraping',
+        'Content Planning'
+      ],
       schedule: 'Monday–Friday — 9:00 AM',
       avatar: '/assets/MayaProfile.jpg',
       status: 'Active',
+      n8nWorkflowId: '6SfepVmMljnVsWBG',
     },
   });
 

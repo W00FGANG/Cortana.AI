@@ -6,6 +6,7 @@ import { getAgentStyle, formatTimeAgo } from "@/lib/agent-ui";
 import { updateStalledExecutions } from "@/lib/stalled-executions";
 import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
+import { SocialPublisherOutputViewer } from "@/components/SocialPublisherOutputViewer";
 import { JsonFileOutputViewer } from "@/components/JsonFileOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
 import { AgentChatBubble } from "@/components/AgentChatBubble";
@@ -73,6 +74,11 @@ export default async function AgentProfilePage({ params }: PageProps) {
     agent.role.toLowerCase().includes("email") ||
     agent.n8nWorkflowId === "Al3atlOTCSx8ZNgN";
 
+  const isMarketingAgent =
+    agent.name.toLowerCase().includes("maya") ||
+    agent.role.toLowerCase().includes("marketing") ||
+    agent.n8nWorkflowId === "6SfepVmMljnVsWBG";
+
   const style = getAgentStyle(agent.name);
   const Icon = style.icon;
   const isRunning = agent.tasks.some((t) => t.status === "Running") || agent.runs.some((r) => r.status === "Running");
@@ -106,11 +112,11 @@ export default async function AgentProfilePage({ params }: PageProps) {
     };
   } else if (nameLower.includes("maya")) {
     chatTheme = {
-      bg: "bg-gradient-to-r from-yellow-50 to-white dark:from-yellow-800/40 dark:to-slate-900 border-yellow-100 dark:border-yellow-700/50",
-      tail: "bg-yellow-50 dark:bg-yellow-800/40 border-yellow-100 dark:border-yellow-700/50",
-      avatarBorder: "border-yellow-200 dark:border-yellow-600",
-      fallbackIcon: "border-yellow-200 bg-yellow-100 text-yellow-600",
-      cardBg: "bg-gradient-to-br from-yellow-50/50 to-white dark:from-yellow-800/30 dark:to-slate-900 border-yellow-100 dark:border-yellow-700/40"
+      bg: "bg-gradient-to-r from-purple-50 to-white dark:from-purple-800/40 dark:to-slate-900 border-purple-100 dark:border-purple-700/50",
+      tail: "bg-purple-50 dark:bg-purple-800/40 border-purple-100 dark:border-purple-700/50",
+      avatarBorder: "border-purple-200 dark:border-purple-600",
+      fallbackIcon: "border-purple-200 bg-purple-100 text-purple-600",
+      cardBg: "bg-gradient-to-br from-purple-50/50 to-white dark:from-purple-800/30 dark:to-slate-900 border-purple-100 dark:border-purple-700/40"
     };
   } else if (nameLower.includes("nora")) {
     chatTheme = {
@@ -134,6 +140,20 @@ export default async function AgentProfilePage({ params }: PageProps) {
   const completedTaskWithResult = agent.tasks.find((t) => t.status === "Completed" && t.result) || agent.tasks.find((t) => t.result);
   const completedRunWithOutput = agent.runs.find((r) => r.status === "Completed" && r.output) || agent.runs.find((r) => r.output);
   const latestArticleOutput = completedTaskWithResult?.result || completedRunWithOutput?.output;
+
+  // Check if Maya's latest output is a Social Publisher output
+  let isSocialPublisherOutput = false;
+  if (isMarketingAgent && latestArticleOutput) {
+    try {
+      const trimmed = latestArticleOutput.trim();
+      if (trimmed.startsWith("{")) {
+        const parsed = JSON.parse(trimmed);
+        if (parsed && (parsed.platforms || parsed.post_summary || parsed.target_platforms || parsed.post_text)) {
+          isSocialPublisherOutput = true;
+        }
+      }
+    } catch {}
+  }
 
   // For Kainoa, strictly only show the drafting step and the approval/declination step
   const displayedActivities = isEmailAgent
@@ -299,8 +319,13 @@ export default async function AgentProfilePage({ params }: PageProps) {
         <div className="lg:col-span-2 space-y-8">
 
           {/* Interactive Trigger Panel */}
-          {(isArticleGenerator || isEmailAgent) && (
-            <AgentRunForm agentId={agent.id} agentName={agent.name} isEmailAgent={isEmailAgent} />
+          {(isArticleGenerator || isEmailAgent || isMarketingAgent) && (
+            <AgentRunForm
+              agentId={agent.id}
+              agentName={agent.name}
+              isEmailAgent={isEmailAgent}
+              isMarketingAgent={isMarketingAgent}
+            />
           )}
 
           {/* Current Active Task & Live Step Updates */}
@@ -417,15 +442,21 @@ export default async function AgentProfilePage({ params }: PageProps) {
             )}
           </div>
 
-          {/* Output Section: Article Viewer for Article Generator (Harper), or Email Sent List for Email Agent (Kainoa) */}
-          {!isEmailAgent && latestArticleOutput && (
+          {/* Output Section: Social Media Publisher Receipt, or Research Report / Article Viewer, or Email Sent List */}
+          {isMarketingAgent && isSocialPublisherOutput && latestArticleOutput ? (
+            <SocialPublisherOutputViewer
+              outputData={latestArticleOutput}
+              defaultTitle={completedTaskWithResult?.title || "Social Media Publishing Receipt"}
+            />
+          ) : !isEmailAgent && latestArticleOutput ? (
             <ArticleOutputViewer
               outputData={latestArticleOutput}
-              defaultTitle={completedTaskWithResult?.title || "Research Article Output"}
+              defaultTitle={completedTaskWithResult?.title || (isMarketingAgent ? "Social Media Research Report" : "Research Article Output")}
+              agentType={isMarketingAgent ? "marketing" : isArticleGenerator ? "article" : "general"}
             />
-          )}
+          ) : null}
 
-          {/* Workflow JSON Output File (when completed) */}
+          {/* Workflow JSON Output File (when completed for Kainoa) */}
           {isEmailAgent && emailWorkflowJsonOutput && (
             <JsonFileOutputViewer
               outputData={emailWorkflowJsonOutput}
@@ -441,7 +472,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50 mb-2">About {agent.name}</h2>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-4">{agent.description}</p>
-              {agent.systemPrompt && (
+              {agent.systemPrompt && agent.name.toLowerCase() !== "maya" && (
                 <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-lg relative">
                   <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-1 block">Directive</span>
                   <p className="text-sm text-blue-900/80 italic">

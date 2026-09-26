@@ -1,23 +1,31 @@
 import { NextResponse, after } from "next/server";
+import { revalidatePath } from "next/cache";
 import http from "node:http";
 import https from "node:https";
 import { prisma } from "@/lib/prisma";
+
+const httpAgent = new http.Agent({ keepAlive: true, timeout: 300000 });
+const httpsAgent = new https.Agent({ keepAlive: true, timeout: 300000 });
 
 // Custom HTTP request using built-in node:http with no artificial socket timeouts
 function postJson(urlStr: string, data: any): Promise<{ status: number; text: string }> {
   return new Promise((resolve, reject) => {
     try {
       const url = new URL(urlStr);
-      const client = url.protocol === "https:" ? https : http;
+      const isHttps = url.protocol === "https:";
+      const client = isHttps ? https : http;
+      const agent = isHttps ? httpsAgent : httpAgent;
       const bodyStr = JSON.stringify(data);
 
       const req = client.request(
         url,
         {
           method: "POST",
+          agent,
           headers: {
             "Content-Type": "application/json",
             "Content-Length": Buffer.byteLength(bodyStr),
+            "Connection": "keep-alive",
           },
         },
         (res) => {
@@ -57,6 +65,7 @@ async function executeWorkflowInBackground({
   keywords,
   category,
   language,
+  focusTopic,
 }: {
   agentId: string;
   agentName: string;
@@ -67,6 +76,7 @@ async function executeWorkflowInBackground({
   keywords: string;
   category: string;
   language: string;
+  focusTopic?: string;
 }) {
   try {
     const { status, text: resText } = await postJson(webhookUrl, payload);
@@ -163,7 +173,7 @@ async function executeWorkflowInBackground({
         } else if (typeof responseData.articleJson === "string") {
           try {
             cleanArticle = JSON.parse(responseData.articleJson);
-          } catch {}
+          } catch { }
         } else if (responseData.data && typeof responseData.data === "object") {
           if (responseData.data.articleJson && typeof responseData.data.articleJson === "object") {
             cleanArticle = responseData.data.articleJson;
@@ -210,7 +220,10 @@ async function executeWorkflowInBackground({
 
       const stepName = responseData?.step || "Workflow Completed";
       const nodesList = Array.isArray(responseData?.nodesExecuted) ? responseData.nodesExecuted : null;
-      const articleTitle = cleanArticle?.title || responseData?.title || (keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
+      const articleTitle =
+        cleanArticle?.title ||
+        responseData?.title ||
+        (focusTopic ? `Market Research: "${focusTopic}"` : keywords ? `Haiku / Content for "${keywords}"` : "Generated Content");
 
       await prisma.task.update({
         where: { id: taskId },
@@ -253,17 +266,73 @@ async function executeWorkflowInBackground({
       });
 
       const isHarper = agentName?.toLowerCase().includes("harper");
-      if (!isHarper && (responseData?.markdown || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
+      if (!isHarper && (responseData?.markdown || responseData?.report || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
         await prisma.approval.create({
           data: {
             agentId,
             taskId,
             title: `Approve: ${articleTitle}`,
-            content: responseData?.markdown || resultText,
+            content: responseData?.markdown || responseData?.report || resultText,
             status: "Pending",
           },
         });
       }
+
+      try {
+        revalidatePath(`/agents/${agentId}`);
+        revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+        revalidatePath("/");
+        revalidatePath("/tasks");
+        revalidatePath("/operations");
+        revalidatePath("/approvals");
+      } catch {}
+    } else if (status >= 200 && status < 300) {
+      // Fallback completion for any successful HTTP 2xx response
+      const resultText =
+        typeof responseData === "object" && responseData !== null
+          ? JSON.stringify(responseData, null, 2)
+          : (resText || "Workflow completed successfully");
+
+      await prisma.task.update({
+        where: { id: taskId },
+        data: {
+          status: "Completed",
+          completedAt: new Date(),
+          result: resultText,
+        },
+      });
+
+      await prisma.agentRun.update({
+        where: { id: runId },
+        data: {
+          status: "Completed",
+          completedAt: new Date(),
+          output: resultText,
+        },
+      });
+
+      await prisma.activity.updateMany({
+        where: { agentId, status: "Running" },
+        data: { status: "Success" },
+      });
+
+      await prisma.activity.create({
+        data: {
+          agentId,
+          action: "Workflow completed",
+          description: `Execution finished with HTTP ${status}:\n${resultText}`,
+          status: "Success",
+        },
+      });
+
+      try {
+        revalidatePath(`/agents/${agentId}`);
+        revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+        revalidatePath("/");
+        revalidatePath("/tasks");
+        revalidatePath("/operations");
+        revalidatePath("/approvals");
+      } catch {}
     }
   } catch (err: any) {
     const isAsyncOngoing =
@@ -279,7 +348,24 @@ async function executeWorkflowInBackground({
 
     if (isAsyncOngoing) {
       console.log(`[Cortana] Webhook dispatched to ${agentName}. Workflow is processing asynchronously in n8n.`);
-      // Do NOT mark as failed since n8n is actively running
+      // Monitor in background for completion reported via progress callback
+      try {
+        after(async () => {
+          for (let i = 0; i < 24; i++) {
+            await new Promise((r) => setTimeout(r, 5000));
+            const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
+            if (currentTask && currentTask.status !== "Running") {
+              try {
+                revalidatePath(`/agents/${agentId}`);
+                revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+                revalidatePath("/");
+                revalidatePath("/tasks");
+              } catch {}
+              return;
+            }
+          }
+        });
+      } catch {}
       return;
     }
 
@@ -292,7 +378,7 @@ async function executeWorkflowInBackground({
         completedAt: new Date(),
         result: errorMsg,
       },
-    }).catch(() => {});
+    }).catch(() => { });
     await prisma.agentRun.update({
       where: { id: runId },
       data: {
@@ -300,7 +386,7 @@ async function executeWorkflowInBackground({
         completedAt: new Date(),
         error: errorMsg,
       },
-    }).catch(() => {});
+    }).catch(() => { });
     await prisma.activity.create({
       data: {
         agentId,
@@ -308,14 +394,26 @@ async function executeWorkflowInBackground({
         description: errorMsg,
         status: "Failed",
       },
-    }).catch(() => {});
+    }).catch(() => { });
+
+    try {
+      revalidatePath(`/agents/${agentId}`);
+      revalidatePath(`/agents/${agentName?.toLowerCase()}`);
+      revalidatePath("/");
+      revalidatePath("/tasks");
+    } catch {}
   }
 }
 
 function resolveWebhookUrl(
   agent: { n8nWorkflowId?: string | null; role?: string | null; name?: string | null },
-  isFollowup = false
+  isFollowup = false,
+  isPublisher = false
 ): string {
+  if (isPublisher) {
+    const publisherWebhook = process.env.N8N_SOCIAL_PUBLISHER_WEBHOOK_URL?.trim();
+    return publisherWebhook || "http://127.0.0.1:5678/webhook/social-media-publisher";
+  }
   if (isFollowup) {
     const followupWebhook = process.env.N8N_GMAIL_FOLLOWUP_WEBHOOK_URL?.trim();
     return followupWebhook || "http://127.0.0.1:5678/webhook/gmail-followup";
@@ -329,6 +427,14 @@ function resolveWebhookUrl(
   }
   if (agent.n8nWorkflowId === "yF7_KBvc1CZZvXjTgI4Fs") {
     return "http://127.0.0.1:5678/webhook/generate-article";
+  }
+  if (
+    agent.n8nWorkflowId === "6SfepVmMljnVsWBG" ||
+    agent.role?.toLowerCase().includes("marketing") ||
+    agent.name?.toLowerCase().includes("maya")
+  ) {
+    const mayaWebhook = process.env.N8N_MAYA_WEBHOOK_URL?.trim();
+    return mayaWebhook || "http://127.0.0.1:5678/webhook/social-media-research";
   }
   if (agent.n8nWorkflowId === "1DElnhi9xf3iwYcp") {
     const articleWebhook = process.env.N8N_ARTICLE_WEBHOOK_URL?.trim();
@@ -371,6 +477,24 @@ export async function POST(
     let urls = "";
     let extraPoints = "";
     let recipientsList: any[] | null = null;
+    let focusTopic = "";
+    let targetAudience = "";
+    let additionalContext = "";
+
+    // Social Publisher Fields
+    let postText = "";
+    let platforms = "both";
+    let mediaType = "NONE";
+    let mediaUrl = "";
+    let articleUrl = "";
+    let hashtags = "";
+    let mediaBase64 = "";
+    let fileName = "";
+    let mediaMimeType = "";
+    let linkedinVisibility = "PUBLIC";
+    let linkedinPostAs = "person";
+    let linkedinOrganizationUrn = "";
+    let xReplySettings = "everyone";
 
     const contentType = request.headers.get("content-type") || "";
     if (contentType.includes("application/json")) {
@@ -384,6 +508,25 @@ export async function POST(
         recipientEmail = body.recipientEmail || body.email || "";
         urls = body.urls || "";
         extraPoints = body.extraPoints || body.talkingPoints || "";
+        focusTopic = body.focusTopic || body.focus_topic || body["Focus Topic"] || "";
+        targetAudience = body.targetAudience || body.target_audience || body["Target Audience"] || "";
+        additionalContext = body.additionalContext || body.additional_context || body["Additional Context"] || "";
+        
+        postText = body.postText || body.post_text || body.text || body.content || body["Post Text"] || "";
+        platforms = body.platforms || body.target_platforms || body["Target Platforms"] || "both";
+        mediaType = body.mediaType || body.media_type || body["Media Type"] || "NONE";
+        mediaUrl = body.mediaUrl || body.media_url || body["Media URL"] || body["Media URL (Image or Video Direct Link)"] || "";
+        articleUrl = body.articleUrl || body.article_url || body["Article / Link URL"] || body.url || "";
+        hashtags = body.hashtags || body.tags || body["Hashtags / Tags"] || "";
+        mediaBase64 = body.mediaBase64 || body.media_base64 || "";
+        fileName = body.fileName || body.file_name || "";
+        mediaMimeType = body.mediaMimeType || body.media_mime_type || "";
+        
+        linkedinVisibility = body.linkedinVisibility || body.linkedin_visibility || body["LinkedIn Visibility"] || "PUBLIC";
+        linkedinPostAs = body.linkedinPostAs || body.linkedin_post_as || body["LinkedIn Post As"] || "person";
+        linkedinOrganizationUrn = body.linkedinOrganizationUrn || body.linkedin_organization_urn || body["LinkedIn Organization URN"] || "";
+        xReplySettings = body.xReplySettings || body.x_reply_settings || body["X / Twitter Reply Settings"] || "everyone";
+
         if (Array.isArray(body.recipients)) {
           recipientsList = body.recipients;
         }
@@ -401,6 +544,23 @@ export async function POST(
         recipientEmail = (formData.get("recipientEmail") as string) || (formData.get("email") as string) || "";
         urls = (formData.get("urls") as string) || "";
         extraPoints = (formData.get("extraPoints") as string) || (formData.get("talkingPoints") as string) || "";
+        focusTopic = (formData.get("focusTopic") as string) || (formData.get("focus_topic") as string) || (formData.get("Focus Topic") as string) || "";
+        targetAudience = (formData.get("targetAudience") as string) || (formData.get("target_audience") as string) || (formData.get("Target Audience") as string) || "";
+        additionalContext = (formData.get("additionalContext") as string) || (formData.get("additional_context") as string) || (formData.get("Additional Context") as string) || "";
+
+        postText = (formData.get("postText") as string) || (formData.get("post_text") as string) || (formData.get("text") as string) || "";
+        platforms = (formData.get("platforms") as string) || (formData.get("target_platforms") as string) || "both";
+        mediaType = (formData.get("mediaType") as string) || (formData.get("media_type") as string) || "NONE";
+        mediaUrl = (formData.get("mediaUrl") as string) || (formData.get("media_url") as string) || "";
+        articleUrl = (formData.get("articleUrl") as string) || (formData.get("article_url") as string) || "";
+        hashtags = (formData.get("hashtags") as string) || (formData.get("tags") as string) || "";
+        mediaBase64 = (formData.get("mediaBase64") as string) || (formData.get("media_base64") as string) || "";
+        fileName = (formData.get("fileName") as string) || (formData.get("file_name") as string) || "";
+        mediaMimeType = (formData.get("mediaMimeType") as string) || (formData.get("media_mime_type") as string) || "";
+        linkedinVisibility = (formData.get("linkedinVisibility") as string) || (formData.get("linkedin_visibility") as string) || "PUBLIC";
+        linkedinPostAs = (formData.get("linkedinPostAs") as string) || (formData.get("linkedin_post_as") as string) || "person";
+        linkedinOrganizationUrn = (formData.get("linkedinOrganizationUrn") as string) || (formData.get("linkedin_organization_urn") as string) || "";
+        xReplySettings = (formData.get("xReplySettings") as string) || (formData.get("x_reply_settings") as string) || "everyone";
 
         const uploadedFile = formData.get("file") || formData.get("Upload_JSON_File") || formData.get("json");
         if (uploadedFile && typeof (uploadedFile as any).text === "function") {
@@ -408,7 +568,7 @@ export async function POST(
             const fileText = await (uploadedFile as any).text();
             const parsed = JSON.parse(fileText);
             recipientsList = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.recipients) ? parsed.recipients : [parsed]);
-          } catch {}
+          } catch { }
         }
       } catch {
         // use defaults
@@ -421,16 +581,96 @@ export async function POST(
       agent.role?.toLowerCase().includes("email") ||
       agent.name?.toLowerCase().includes("kainoa");
 
+    const isMarketingWorkflow =
+      agent.n8nWorkflowId === "6SfepVmMljnVsWBG" ||
+      agent.role?.toLowerCase().includes("marketing") ||
+      agent.name?.toLowerCase().includes("maya");
+
     const isFollowupWorkflow =
       isEmailWorkflow &&
       (mode.toLowerCase().includes("followup") || mode.toLowerCase().includes("follow-up"));
+
+    const isSocialPublisherWorkflow =
+      isMarketingWorkflow &&
+      (mode.toLowerCase().includes("publisher") ||
+       mode.toLowerCase().includes("poster") ||
+       mode.toLowerCase().includes("publish") ||
+       mode.toLowerCase().includes("social-media-publisher") ||
+       Boolean(postText.trim()));
 
     let taskTitle = "";
     let taskDesc = "";
     let runInput = "";
     let payload: any = null;
 
-    if (isFollowupWorkflow) {
+    if (isSocialPublisherWorkflow) {
+      const cleanPostText = postText.trim() || "Autonomous social media publishing update";
+      const snippet = cleanPostText.length > 50 ? `${cleanPostText.slice(0, 47)}...` : cleanPostText;
+      const targetPlatformUpper = platforms === "both" ? "X & LinkedIn" : platforms === "x" ? "X (Twitter)" : "LinkedIn";
+      
+      taskTitle = `Social Media Post: "${snippet}"`;
+      taskDesc = `Platforms: ${targetPlatformUpper} | Media: ${mediaType} | Mode: Live Publish`;
+      runInput = `Platforms: ${targetPlatformUpper}\nMedia: ${mediaType}\nMode: Live Publish\nText:\n${cleanPostText}${hashtags ? `\n\nHashtags: ${hashtags}` : ""}${mediaUrl ? `\nMedia URL: ${mediaUrl}` : ""}${articleUrl ? `\nArticle URL: ${articleUrl}` : ""}`;
+
+      const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000";
+      const proto = request.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+      
+      let finalMediaUrl = "";
+      if (mediaType === "IMAGE" || mediaType === "VIDEO") {
+        finalMediaUrl = mediaUrl && mediaUrl.startsWith("/") ? `${proto}://${host}${mediaUrl}` : mediaUrl;
+      }
+
+      const finalArticleUrl = mediaType === "ARTICLE" ? articleUrl.trim() : "";
+
+      payload = {
+        post_text: cleanPostText,
+        platforms,
+        media_type: mediaType,
+        media_url: finalMediaUrl,
+        article_url: finalArticleUrl,
+        hashtags,
+        dry_run: false,
+        mode: "live",
+        linkedin_visibility: linkedinVisibility,
+        linkedin_post_as: linkedinPostAs,
+        linkedin_organization_urn: linkedinOrganizationUrn,
+        x_reply_settings: xReplySettings,
+        // Also map standard Form labels for n8n compatibility:
+        "Post Text": cleanPostText,
+        "Target Platforms": platforms === "both" ? "Both X and LinkedIn" : platforms === "x" ? "X (Twitter) Only" : "LinkedIn Only",
+        "Media Type": mediaType === "NONE" ? "Text Only" : mediaType === "IMAGE" ? "Image" : mediaType === "VIDEO" ? "Video" : "Article Link",
+        "Execution Mode": "Live Publish (Post to Platforms)",
+        "Media URL (Image or Video Direct Link)": finalMediaUrl,
+        "Article / Link URL": finalArticleUrl,
+        "Hashtags / Tags": hashtags,
+        "LinkedIn Visibility": linkedinVisibility,
+        "LinkedIn Post As": linkedinPostAs === "organization" ? "Organization" : "Person",
+        "LinkedIn Organization URN": linkedinOrganizationUrn,
+        "X / Twitter Reply Settings": xReplySettings,
+        ...((mediaType === "IMAGE" || mediaType === "VIDEO") && mediaBase64 ? {
+          media_base64: mediaBase64,
+          file_name: fileName || "media",
+          fileName: fileName || "media",
+          media_mime_type: mediaMimeType || (mediaType === "VIDEO" ? "video/mp4" : "image/jpeg"),
+        } : {}),
+      };
+    } else if (isMarketingWorkflow) {
+      const topic = focusTopic.trim() || "Hawaii business & AI automation";
+      const audience = targetAudience.trim() || "Local business owners, entrepreneurs, and service professionals";
+      const context = additionalContext.trim() || "Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows";
+
+      taskTitle = `Social Media Research: ${topic}`;
+      taskDesc = `Audience: ${audience} | Live YouTube & Search Trends`;
+      runInput = `Focus Topic: "${topic}"\nTarget Audience: "${audience}"\nContext: "${context}"`;
+      payload = {
+        focus_topic: topic,
+        target_audience: audience,
+        additional_context: context,
+        "Focus Topic": topic,
+        "Target Audience": audience,
+        "Additional Context": context,
+      };
+    } else if (isFollowupWorkflow) {
       taskTitle = "Scan & draft Gmail follow-ups";
       taskDesc = "Autonomous scan of sent Gmail threads (older than 5d) for unreplied prospects";
       runInput = "Mode: Gmail Follow-up Scanner";
@@ -460,8 +700,8 @@ export async function POST(
         };
       }
     } else {
-      taskTitle = keywords 
-        ? `Generate content for "${keywords}"` 
+      taskTitle = keywords
+        ? `Generate content for "${keywords}"`
         : `Manual execution for ${agent.name}`;
       taskDesc = `Category: ${category} | Language: ${language}`;
       runInput = keywords
@@ -501,7 +741,11 @@ export async function POST(
       await prisma.activity.create({
         data: {
           agentId: agent.id,
-          action: isFollowupWorkflow ? "Scanning Gmail For Follow-ups" : `Executing: ${agent.name} Workflow`,
+          action: isSocialPublisherWorkflow
+            ? `Publishing: Social Media Post`
+            : isFollowupWorkflow
+            ? "Scanning Gmail For Follow-ups"
+            : `Executing: ${agent.name} Workflow`,
           description: `Initiated workflow execution: ${taskTitle}`,
           status: "Running",
         },
@@ -509,22 +753,37 @@ export async function POST(
     }
 
     // 2. Dispatch to n8n webhook asynchronously in background using Next.js after()
-    const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow);
+    const webhookUrl = resolveWebhookUrl(agent, isFollowupWorkflow, isSocialPublisherWorkflow);
 
-    // Execute in background with Next.js after()
-    after(() => {
+    // Execute in background with Next.js after(), with fallback if run outside server request scope
+    const dispatchBg = () => {
+      const trackingPayload = {
+        ...payload,
+        agentId: agent.id,
+        agentName: agent.name,
+        taskId: task.id,
+        runId: run.id,
+      };
+
       executeWorkflowInBackground({
         agentId: agent.id,
         agentName: agent.name,
         taskId: task.id,
         runId: run.id,
         webhookUrl,
-        payload,
+        payload: trackingPayload,
         keywords,
         category,
         language,
+        focusTopic,
       });
-    });
+    };
+
+    try {
+      after(dispatchBg);
+    } catch {
+      dispatchBg();
+    }
 
     const isHtmlForm = request.headers.get("accept")?.includes("text/html");
     if (isHtmlForm) {

@@ -1,0 +1,528 @@
+{
+  "name": "Social Media Research",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "social-media-research",
+        "formTitle": "Social Media Research Generator",
+        "formDescription": "Enter your research parameters below to generate a viral social media market research report and 3 short-form video concepts grounded in live video metrics and search trends.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Focus Topic",
+              "requiredField": true,
+              "defaultValue": "Hawaii business & AI automation"
+            },
+            {
+              "fieldLabel": "Target Audience",
+              "requiredField": false,
+              "defaultValue": "Local business owners, entrepreneurs, and service professionals"
+            },
+            {
+              "fieldLabel": "Additional Context",
+              "fieldType": "textarea",
+              "requiredField": false,
+              "defaultValue": "Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows"
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "buttonLabel": "Generate Research Report",
+          "formSubmittedText": "Your market research request has been submitted! The live research pipeline (YouTube Shorts & Google Search Trends) is running in the background and generating your Markdown report."
+        }
+      },
+      "id": "form-trigger-sm-research",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        100,
+        160
+      ],
+      "webhookId": "social-media-research-form"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger-sm-research",
+      "name": "When clicking ‘Execute Workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "social-media-research",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-sm-research",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        500
+      ],
+      "webhookId": "social-media-research"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Inputs from Form Submission, Webhook, or Canvas Manual Trigger\nconst item = $input.first()?.json || {};\nconst body = item.body || {};\nconst query = item.query || {};\n\n// Support Form Trigger labels, field IDs, Webhook body, query params, or fallback\nconst focusTopic = item['Focus Topic'] || item['field-0'] || item.focus_topic || body['Focus Topic'] || body.focus_topic || body.topic || query.focus_topic || 'Hawaii business & AI automation';\nconst targetAudience = item['Target Audience'] || item['field-1'] || item.target_audience || body['Target Audience'] || body.target_audience || body.audience || query.target_audience || 'Local business owners, entrepreneurs, and service professionals';\nconst additionalContext = item['Additional Context'] || item['field-2'] || item['field-3'] || item.additional_context || body['Additional Context'] || body.additional_context || query.additional_context || 'Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows';\n\nconst agentId = item.agentId || body.agentId || query.agentId || 'cmtry4o2s0001bnqo9unud2s2';\nconst taskId = item.taskId || body.taskId || query.taskId || '';\nconst runId = item.runId || body.runId || query.runId || '';\n\n// Detect whether triggered via Form Submission or Webhook\nconst isForm = Boolean(item.submittedAt || item['Focus Topic'] || item['field-0']);\nconst isWebhook = Boolean(item.headers || item.body || item.query);\n\nreturn [{\n  json: {\n    focus_topic: focusTopic,\n    target_audience: targetAudience,\n    additional_context: additionalContext,\n    agent_id: agentId,\n    task_id: taskId,\n    run_id: runId,\n    is_form: isForm,\n    is_webhook: isWebhook,\n    llm_provider: 'Ollama Local',\n    ollama_url: 'http://host.docker.internal:11434/api/chat',\n    ollama_model: 'qwen3.6:35b'\n  }\n}];"
+      },
+      "id": "normalize-inputs",
+      "name": "Normalize Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-topic",
+              "name": "focus_topic",
+              "type": "string",
+              "value": "={{ $json.focus_topic }}"
+            },
+            {
+              "id": "assign-audience",
+              "name": "target_audience",
+              "type": "string",
+              "value": "={{ $json.target_audience }}"
+            },
+            {
+              "id": "assign-context",
+              "name": "additional_context",
+              "type": "string",
+              "value": "={{ $json.additional_context }}"
+            },
+            {
+              "id": "assign-is-webhook",
+              "name": "is_response_required",
+              "type": "boolean",
+              "value": "={{ $json.is_response_required }}"
+            },
+            {
+              "id": "param-llm-provider",
+              "name": "llm_provider",
+              "type": "string",
+              "value": "Ollama Local"
+            },
+            {
+              "id": "param-ollama-url",
+              "name": "ollama_url",
+              "type": "string",
+              "value": "http://host.docker.internal:11434/api/chat"
+            },
+            {
+              "id": "param-ollama-model",
+              "name": "ollama_model",
+              "type": "string",
+              "value": "qwen3.6:35b"
+            },
+            {
+              "id": "param-sys-prompt",
+              "name": "system_prompt_research",
+              "type": "string",
+              "value": "You are a practical Social Media Strategist and Short-Form Content Producer specializing in TikTok, Instagram Reels, and YouTube Shorts.\n\nYour mission is to perform market research on what social media posts are going viral across business, tech, and local markets, and deliver a clean, highly readable MARKDOWN REPORT.\n\nIMPORTANT FORMATTING RULES:\n1. Write in clean, standard ASCII Markdown.\n2. DO NOT USE EMOJIS or special decorative Unicode symbols (they cause character encoding issues and mojibake on Windows). Use standard markdown headers (#, ##, ###), bold text, and bullet points instead.\n3. Keep the writing concise, professional, and easy to read. Avoid dense walls of text.\n4. For video suggestions: DO NOT write complex second-by-second scene tables or beat sheets. Instead, keep them easy to follow with:\n   - The recommended format\n   - A general suggestion of what the video should talk about\n   - A bit of detail on a strong hook (spoken + visual)\n   - A simple call to action\n\nGROUNDED TOPICS & SIGNALS TO COVER:\n- Topics: AI, Websites, Business automation, Hawaii business, Entrepreneurship, Technology, Marketing, Local business trends.\n- Content Formats: Talking-head, Educational breakdowns, Before/after, Screen recordings, Tutorials, Case studies, Business stories, Industry commentary, Memes/trends.\n- Trend Signals: Trending topics, Popular hooks, Recurring formats, Hashtag trends, Search trends, Popular questions, Viral content patterns, Competitor gaps, Industry conversations.\n- Live Scraped Data: Reference the provided live video view counts (e.g. 1M+ views, 300K+ views) and search topics.\n\nREQUIRED REPORT OUTLINE:\n\n# Social Media Market Research & Viral Trends Report\n> Focus Topic: <Focus Topic>\n> Target Audience: <Target Audience>\n> Context: <Business Context>\n\n---\n\n## Executive Summary\nA short 2-3 paragraph overview of current viral dynamics, what content is getting traction right now, and the biggest opportunities.\n\n---\n\n## Live Market Signals & View Benchmarks\n- Notable view counts and viral benchmarks observed from scraped data.\n- What types of titles, topics, and styles are pulling hundreds of thousands or millions of views.\n- Key lessons from top-performing creators.\n\n---\n\n## Key Trends Noticed\n\n### Macro and Micro Trends\nKey shifts in AI, websites, automation, and local/Hawaii business interest.\n\n### Formats Getting High Retention\nWhich formats are currently holding attention on TikTok, Reels, and Shorts (e.g., fast screen demos, simple talking-head breakdowns, before/after transformations).\n\n### Popular Hooks and Questions\nCommon questions audience members are asking and the types of hooks stopping the scroll.\n\n### Search and Hashtags\nHigh-intent search terms and useful hashtag clusters.\n\n---\n\n## 3 Short-Form Video Suggestions\n\nProvide exactly 3 high-impact video suggestions tailored to the research. Format each cleanly as follows:\n\n### Video Suggestion 1: [Catchy Video Title]\n- Recommended Format: [e.g. Talking-head, Screen recording demo, Before/after transformation, or Quick tutorial]\n- What to Talk About: [A clear, practical summary (2-3 sentences) of what the video should cover: the core problem to address, the main value or tip to share, and why it matters to the viewer.]\n- Hook Idea and Detail:\n  - Spoken Line: \"[The exact first 3 seconds spoken phrase to grab attention]\"\n  - Visual Hook: [What to show on screen or as a bold text overlay in the first 3 seconds]\n  - Why It Works: [A quick sentence explaining why this angle captures interest]\n- Suggested Call to Action: [A simple, natural CTA, e.g., 'Comment AUTOMATE and I will send you the guide' or 'Save this for your next project']\n\n---\n\n### Video Suggestion 2: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n### Video Suggestion 3: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n## Next Steps\nBrief bulleted recommendations on shooting and publishing these concepts."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "research-config-params",
+      "name": "Research Config & Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        580,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://www.youtube.com/results?search_query=' + encodeURIComponent(($json.focus_topic || 'business automation hawaii') + ' viral shorts') }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrape-youtube-shorts",
+      "name": "Scrape YouTube Shorts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        350
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse YouTube HTML and Extract Real Post Metadata\nconst items = $input.all();\nconst html = items[0]?.json?.data || items[0]?.json || '';\nconst rawHtml = typeof html === 'string' ? html : JSON.stringify(html);\n\n// Carry forward focus topic from upstream\nconst focusTopic = items[0]?.json?.focus_topic || $('Research Config & Parameters').first()?.json?.focus_topic || 'Hawaii business & AI automation';\n\nconst match = rawHtml.match(/var ytInitialData = ({[\\s\\S]*?});<\\/script>/);\nconst videos = [];\n\nif (match) {\n  try {\n    const json = JSON.parse(match[1]);\n    \n    function walk(obj) {\n      if (!obj || typeof obj !== 'object') return;\n      \n      if (obj.videoRenderer) {\n        const vr = obj.videoRenderer;\n        const title = vr.title?.runs?.[0]?.text || vr.title?.simpleText || '';\n        const views = vr.viewCountText?.simpleText || vr.viewCountText?.runs?.[0]?.text || '';\n        const published = vr.publishedTimeText?.simpleText || '';\n        const channel = vr.ownerText?.runs?.[0]?.text || '';\n        const videoId = vr.videoId || '';\n        const length = vr.lengthText?.simpleText || '';\n        const snippet = vr.detailedMetadataSnippets?.[0]?.snippetText?.runs?.map(r => r.text).join('') || '';\n        \n        if (title && videoId) {\n          videos.push({\n            platform: 'YouTube',\n            type: 'Video',\n            title: title,\n            views: views,\n            published: published,\n            channel: channel,\n            duration: length,\n            url: 'https://www.youtube.com/watch?v=' + videoId,\n            snippet: snippet\n          });\n        }\n      }\n      \n      if (obj.reelItemRenderer) {\n        const rr = obj.reelItemRenderer;\n        const title = rr.headline?.simpleText || '';\n        const views = rr.viewCountText?.simpleText || '';\n        const channel = rr.ownerText?.runs?.[0]?.text || '';\n        const videoId = rr.videoId || '';\n        \n        if (title && videoId) {\n          videos.push({\n            platform: 'YouTube Shorts',\n            type: 'Short',\n            title: title,\n            views: views,\n            channel: channel,\n            url: 'https://www.youtube.com/shorts/' + videoId\n          });\n        }\n      }\n      \n      for (const k of Object.keys(obj)) {\n        walk(obj[k]);\n      }\n    }\n    \n    walk(json);\n  } catch (e) {}\n}\n\nreturn [{\n  json: {\n    focus_topic: focusTopic,\n    scraped_videos_count: videos.length,\n    scraped_videos: videos.slice(0, 15)\n  }\n}];"
+      },
+      "id": "parse-youtube-metadata",
+      "name": "Parse YouTube Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://news.google.com/rss/search?q=' + encodeURIComponent(($json.focus_topic || 'hawaii business trends') + ' ai automation') + '&hl=en-US&gl=US&ceid=US:en' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "scrape-google-trends",
+      "name": "Scrape Google Search Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1260,
+        350
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Google News / Search RSS\nconst items = $input.all();\nconst xml = items[0]?.json?.data || items[0]?.json || '';\nconst rawXml = typeof xml === 'string' ? xml : JSON.stringify(xml);\n\nconst trends = [];\nconst regex = /<item>[\\s\\S]*?<title>([\\s\\S]*?)<\\/title>[\\s\\S]*?<link>([\\s\\S]*?)<\\/link>[\\s\\S]*?<pubDate>([\\s\\S]*?)<\\/pubDate>[\\s\\S]*?<\\/item>/g;\nlet m;\n\nwhile ((m = regex.exec(rawXml)) !== null) {\n  const rawTitle = m[1].replace(/<!\\[CDATA\\[(.*?)\\]\\]>/g, '$1').trim();\n  const link = m[2].trim();\n  const pubDate = m[3].trim();\n  \n  const parts = rawTitle.split(' - ');\n  const title = parts.slice(0, -1).join(' - ') || rawTitle;\n  const source = parts.length > 1 ? parts[parts.length - 1] : 'News Source';\n  \n  if (title) {\n    trends.push({\n      platform: 'Google Search & News',\n      headline: title,\n      source: source,\n      published: pubDate,\n      url: link\n    });\n  }\n}\n\nreturn [{\n  json: {\n    scraped_trends_count: trends.length,\n    scraped_trends: trends.slice(0, 15)\n  }\n}];"
+      },
+      "id": "parse-search-trends",
+      "name": "Parse Search Trends",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Scraped Social Posts & Live Search Trends\nconst ytData = $('Parse YouTube Metadata').first()?.json || {};\nconst newsData = $('Parse Search Trends').first()?.json || {};\nconst configData = $('Research Config & Parameters').first()?.json || {};\n\nconst scrapedVideos = ytData.scraped_videos || [];\nconst scrapedTrends = newsData.scraped_trends || [];\n\nconst focusTopic = configData.focus_topic || 'Hawaii business & AI automation';\nconst targetAudience = configData.target_audience || 'Local business owners and entrepreneurs';\nconst additionalContext = configData.additional_context || 'Focus on practical automation and ROI';\nconst isWebhook = configData.is_webhook === true;\n\nreturn [{\n  json: {\n    focus_topic: focusTopic,\n    target_audience: targetAudience,\n    additional_context: additionalContext,\n    is_webhook: isWebhook,\n    live_scraped_data: {\n      total_videos_found: scrapedVideos.length,\n      videos: scrapedVideos,\n      total_trends_found: scrapedTrends.length,\n      trends: scrapedTrends\n    }\n  }\n}];"
+      },
+      "id": "merge-live-research-data",
+      "name": "Merge Live Research Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1700,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Research Config & Parameters').item.json.ollama_url || 'http://host.docker.internal:11434/api/chat' }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const isOllama = ($('Research Config & Parameters').item.json.llm_provider || '') === 'Ollama Local';\n  const model = isOllama ? ($('Research Config & Parameters').item.json.ollama_model || 'qwen3.6:35b') : 'gemini-1.5-flash';\n  const sysText = $('Research Config & Parameters').item.json.system_prompt_research;\n\n  const merged = $('Merge Live Research Data').first()?.json || {};\n  const focusTopic = merged.focus_topic || 'Hawaii business & AI automation';\n  const targetAudience = merged.target_audience || 'Local business owners and entrepreneurs';\n  \n  const additionalContext = merged.additional_context || 'Focus on practical automation and saving hours';\n  const liveData = merged.live_scraped_data || {};\n\n  const videosText = (liveData.videos || []).slice(0, 10).map((v, i) => {\n    return (i + 1) + '. [' + (v.views || 'Viral') + '] \"' + v.title + '\" (' + v.platform + ') by ' + v.channel + ' - ' + v.url + (v.snippet ? ' | Snippet: ' + v.snippet : '');\n  }).join('\\n');\n\n  const trendsText = (liveData.trends || []).slice(0, 10).map((t, i) => {\n    return (i + 1) + '. \"' + t.headline + '\" (' + t.source + ') - ' + t.published;\n  }).join('\\n');\n\n  const userText = [\n    \"CONDUCT MARKET RESEARCH & VIRAL SOCIAL MEDIA ANALYSIS GROUNDED IN LIVE SCRAPED DATA\",\n    \"\",\n    \"Parameters:\",\n    \"- Focus Topic: \" + focusTopic,\n    \"- Target Audience: \" + targetAudience,\n    \"- Additional Context: \" + additionalContext,\n    \"\",\n    \"LIVE SCRAPED SHORT-FORM VIDEOS & VIEW BENCHMARKS (OPTION 1):\",\n    videosText || \"No video records returned; use standard viral video intelligence benchmarks.\",\n    \"\",\n    \"LIVE SCRAPED SEARCH TRENDS & NEWS BREAKS (OPTION 3):\",\n    trendsText || \"No search records returned; use standard search intelligence benchmarks.\",\n    \"\",\n    \"GROUNDED CRITERIA TO INTEGRATE:\",\n    \"1. Trending Topics: AI, Websites, Business automation, Hawaii business, Entrepreneurship, Technology, Marketing, Local business trends.\",\n    \"2. Content Formats: Talking-head videos, Educational videos, Before/after, Screen recordings, Tutorials, Case studies, Business stories, Industry commentary, Memes/trends.\",\n    \"3. Trend Signals: Trending topics, Popular hooks, Recurring formats, Hashtag trends, Search trends, Popular questions, Viral content patterns, Competitor content, Industry conversations.\",\n    \"\",\n    \"DELIVERABLE REQUIRED:\",\n    \"Write the complete, publication-grade, human-readable MARKDOWN report directly (do NOT wrap in JSON).\"\n  ].join(\"\\n\");\n\n  if (isOllama) {\n    return {\n      model: model,\n      messages: [\n        { role: \"system\", content: sysText },\n        { role: \"user\", content: userText }\n      ],\n      stream: false\n    };\n  } else {\n    return {\n      system_instruction: { parts: [{ text: sysText }] },\n      contents: [{ role: \"user\", parts: [{ text: userText }] }]\n    };\n  }\n})()) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "generate-research-http",
+      "name": "Generate Research & Video Ideation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1940,
+        350
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract & Format Social Media Research Markdown Report\nconst items = $input.all();\nconst run = items[0]?.json || {};\n\n// 1. Extract raw text from Ollama response\nlet rawText = '';\nif (run?.message?.content) {\n  rawText = run.message.content;\n} else if (run?.response) {\n  rawText = run.response;\n} else if (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n  rawText = run.candidates[0].content.parts[0].text;\n} else if (typeof run.output === 'string') {\n  rawText = run.output;\n} else if (run.text) {\n  rawText = run.text;\n}\n\n// Strip thinking tags if generated by reasoning models\nrawText = rawText.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n\n// Strip outer markdown code fences if wrapped in ```markdown ... ```\nlet markdown = rawText;\nconst fenceMatch = rawText.match(/^\\`\\`\\`(?:markdown)?\\s*([\\s\\S]*?)\\s*\\`\\`\\`$/i);\nif (fenceMatch) {\n  markdown = fenceMatch[1].trim();\n}\n\n// 2. Clean emojis and mojibake symbols\nmarkdown = markdown\n  .replace(/[\\u{1F300}-\\u{1F9FF}]/gu, '')\n  .replace(/[\\u{1F600}-\\u{1F64F}]/gu, '')\n  .replace(/[\\u{1F680}-\\u{1F6FF}]/gu, '')\n  .replace(/[\\u{2600}-\\u{26FF}]/gu, '')\n  .replace(/[\\u{2700}-\\u{27BF}]/gu, '')\n  .replace(/ðŸ[^\\s]*/g, '')\n  .replace(/\\r\\n/g, '\\n')\n  .replace(/\\n{3,}/g, '\\n\\n');\n\n// 3. Ensure clean title header if missing\nif (!markdown.startsWith('#')) {\n  markdown = '# Social Media Market Research & Viral Trends Report\\n\\n' + markdown;\n}\n\n// 4. Fetch context metadata\nconst mergedContext = $('Merge Live Research Data').first()?.json || {};\nconst normData = $('Normalize Inputs').first()?.json || {};\nconst focusTopic = mergedContext.focus_topic || 'Hawaii business & AI automation';\nconst targetAudience = mergedContext.target_audience || 'Local business owners and entrepreneurs';\nconst isWebhook = mergedContext.is_webhook === true;\nconst liveData = mergedContext.live_scraped_data || {};\nconst scrapedVideos = liveData.videos || [];\nconst scrapedTrends = liveData.trends || [];\n\nconst agentId = normData.agent_id || 'cmtry4o2s0001bnqo9unud2s2';\nconst taskId = normData.task_id || '';\nconst runId = normData.run_id || '';\n\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-');\nconst fileSlug = 'social-media-research-' + timestamp;\n\nreturn [{\n  json: {\n    success: true,\n    file_slug: fileSlug,\n    focus_topic: focusTopic,\n    target_audience: targetAudience,\n    agent_id: agentId,\n    task_id: taskId,\n    run_id: runId,\n    is_webhook: isWebhook,\n    live_videos_count: scrapedVideos.length,\n    live_trends_count: scrapedTrends.length,\n    markdown: markdown,\n    report: markdown\n  }\n}];"
+      },
+      "id": "extract-format-report",
+      "name": "Extract & Format Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2180,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "markdown",
+        "options": {
+          "fileName": "={{ $json.file_slug }}.md"
+        }
+      },
+      "id": "generate-markdown-file",
+      "name": "Generate Markdown File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Live Social Media Research Pipeline\n\n**Trigger Modes:**\n1. **Form Submission (Web UI)**:\n   - Access via browser: `/form/social-media-research`\n   - Pre-filled fields ready to submit or customize.\n2. **Webhook (API)**:\n   - `POST /webhook/social-media-research`\n3. **Canvas Manual Trigger**:\n   - 'Execute Workflow' button inside n8n.\n\n**Linear Pipeline:**\nScrape YouTube -> Parse YouTube -> Scrape Google Trends -> Parse Trends -> Merge Data -> Ollama Synthesis -> Format Markdown -> Save .md File -> Return Response.",
+        "height": 520,
+        "width": 380,
+        "color": 4
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note - Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        100,
+        680
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Grounded Research Criteria\n\n**Trending Topics:**\n- AI, Websites, Business automation, Hawaii business, Entrepreneurship, Technology, Marketing, Local business trends.\n\n**Content Formats:**\n- Talking-head, Educational, Before/after, Screen recordings, Tutorials, Case studies, Business stories, Industry commentary, Memes/trends.\n\n**Trend Signals:**\n- Trending topics, Popular hooks, Recurring formats, Hashtag trends, Search trends, Popular questions, Viral content patterns, Competitor content, Industry conversations.",
+        "height": 520,
+        "width": 380,
+        "color": 6
+      },
+      "id": "sticky-parameters",
+      "name": "Sticky Note - Parameters",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        520,
+        680
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## 🌐 Form UI & Webhook Integration\n\n**1. Interactive Form Submission (Web Browser):**\nOpen in browser:\n`http://localhost:5678/form/social-media-research-form`\nProvides a clean, ready-to-use form with 3 inputs pre-filled.\n\n**2. Webhook Endpoint (API / Curl):**\n`POST http://localhost:5678/webhook/social-media-research`\n\n**3. Manual Trigger:**\nClick 'Execute Workflow' directly on the canvas.\n\n**Inputs Available on Both Form & Webhook:**\n- Focus Topic (e.g. Hawaii business & AI automation)\n- Target Audience (e.g. Local business owners)\n- Additional Context (e.g. Practical ROI and time savings)\n\n**Output:**\nFull human-readable Markdown report saved as a downloadable .md file.",
+        "height": 520,
+        "width": 380,
+        "color": 5
+      },
+      "id": "sticky-webhook",
+      "name": "Sticky Note - Webhook & Usage",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        940,
+        680
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "id": "respond-to-webhook-sm",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/agents/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agentId: $json.agent_id || 'cmtry4o2s0001bnqo9unud2s2',\n  agentName: 'Maya',\n  taskId: $json.task_id || undefined,\n  runId: $json.run_id || undefined,\n  status: 'Completed',\n  step: 'Social Media Research Report Generated',\n  markdown: $json.markdown,\n  report: $json.report,\n  title: 'Social Media Research: ' + ($json.focus_topic || 'Hawaii Business'),\n  file_slug: $json.file_slug\n}) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "report-completion-to-dashboard-sm",
+      "name": "Report Completion to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2420,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking ‘Execute Workflow’": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Research Config & Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Config & Parameters": {
+      "main": [
+        [
+          {
+            "node": "Scrape YouTube Shorts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape YouTube Shorts": {
+      "main": [
+        [
+          {
+            "node": "Parse YouTube Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse YouTube Metadata": {
+      "main": [
+        [
+          {
+            "node": "Scrape Google Search Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Google Search Trends": {
+      "main": [
+        [
+          {
+            "node": "Parse Search Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Search Trends": {
+      "main": [
+        [
+          {
+            "node": "Merge Live Research Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Live Research Data": {
+      "main": [
+        [
+          {
+            "node": "Generate Research & Video Ideation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Research & Video Ideation": {
+      "main": [
+        [
+          {
+            "node": "Extract & Format Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract & Format Report": {
+      "main": [
+        [
+          {
+            "node": "Generate Markdown File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Report Completion to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "all",
+    "saveExecutionProgress": true
+  },
+  "id": "6SfepVmMljnVsWBG"
+}

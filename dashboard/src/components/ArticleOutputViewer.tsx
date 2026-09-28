@@ -13,12 +13,112 @@ interface ArticleOutputViewerProps {
   agentType?: "article" | "marketing" | "general";
 }
 
+
+export function sanitizeSectionContent(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  let str = text;
+
+  // Normalize newlines
+  str = str.replace(/\r\n/g, '\n');
+
+  // 1. Remove Markdown links where link anchor is in square brackets: [Anchor](url)
+  // If Anchor is generic source/link/url/number, drop it entirely.
+  // If Anchor is natural text ('According to [Harvard Business Review](url)...'), keep the natural text.
+  str = str.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gi, (match, anchor) => {
+    const cleanAnchor = anchor.trim();
+    if (/^(?:https?:\/\/|source|sources|link|links|url|urls|ref|refs|reference|references|citation|citations|here|click here|website|study|report|\d+|\^?\d+)$/i.test(cleanAnchor)) {
+      return '';
+    }
+    if (/^(?:source|sources|ref|refs|citation|citations)\s*[:\-–—]/i.test(cleanAnchor)) {
+      return '';
+    }
+    return cleanAnchor;
+  });
+
+  // 2. Remove parenthesized or bracketed explicit source markers
+  // e.g. '(Source: Gartner, 2024)', '[Source: Gartner]', '(Data Source: BLS)', '(via Bloomberg)', '(see: ...)'
+  str = str.replace(/\s*[\(\[]\s*(?:Source|Sources|Ref|Refs|Reference|References|Citation|Citations|Data Source|Data Sources|Courtesy of|Via|See also|See|According to)\s*[:\-–—]?\s*[^)\]]+[\)\]]/gi, '');
+
+  // 3. Remove academic author-year parenthetical/bracketed citations
+  // e.g. '(Gartner, 2024)', '(McKinsey & Company, 2023)', '(Smith et al., 2022)', '[IDC, 2024]'
+  str = str.replace(/\s*[\(\[]\s*[A-Z][A-Za-z0-9\s&',.\-]{1,60}(?:,\s*|\s+)(?:19|20)\d{2}[a-z]?(?::\s*[\d\-–—\s]+)?\s*[\)\]]/g, '');
+
+  // 4. Remove numeric / footnote citations like [1], [2], [^1], (1), (2), [i], [ii]
+  str = str.replace(/\s*\[\^?\d+\]/g, '');
+  str = str.replace(/\s*\[\^[a-zA-Z0-9_\-]+\]/g, '');
+  str = str.replace(/(?<=[a-zA-Z0-9])\s*\(\d+\)(?=[.,;:!?\s]|$)/g, '');
+  str = str.replace(/\s*\[(?:[ivxlcdm]+|\d+)\]/gi, '');
+
+  // 5. Remove parenthesized or bracketed URLs: (https://...) or [https://...] or (<https://...>)
+  str = str.replace(/\s*[\(\[]\s*(?:URL:\s*)?<?https?:\/\/[^\s\)\]>]+>?[\)\]]/gi, '');
+
+  // 6. Remove any remaining raw URLs or 'URL: https://...'
+  str = str.replace(/(?:\s*\(?(?:URL:\s*)?<?https?:\/\/[^\s\)\];,<>]+>?[)\]]?)/gi, '');
+
+  // 7. Remove inline source tags attached after sentence-ending punctuation on the SAME line
+  str = str.replace(/([.!?])[ \t]*(?:\*{1,2}|_{1,2})?[ \t]*(?:Sources?|References?|Citations?|Data Sources?|Credit)[ \t]*[:\-–—].*?(?=\n|$)/gi, '$1');
+
+  // 8. Line-by-line block filter: removes standalone source lines and multiline source/reference lists
+  const lines = str.split('\n');
+  const filteredLines: string[] = [];
+  let inSourceBlock = false;
+
+  const sourceHeaderRegex = /^\s*(?:#{1,6}\s*)?(?:\*{1,2}|_{1,2})?\s*(?:Sources?|References?|Citations?|Data Sources?|Works Cited|Sources Consulted|Further Reading)\s*[:\-–—]?\s*(?:\*{1,2}|_{1,2})?\s*$/i;
+  const singleLineSourceRegex = /^\s*(?:>|[-*•])?\s*(?:\*{1,2}|_{1,2})?\s*(?:Sources?|References?|Citations?|Data Sources?|Works Cited|Sources Consulted|Further Reading|Credit|Photo Credit|Image Credit)\s*[:\-–—]/i;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (sourceHeaderRegex.test(trimmed)) {
+      inSourceBlock = true;
+      continue;
+    }
+
+    if (singleLineSourceRegex.test(trimmed)) {
+      continue;
+    }
+
+    if (inSourceBlock) {
+      if (!trimmed || /^[-*•\d.)]/.test(trimmed) || /^https?:\/\//i.test(trimmed) || /^>/.test(trimmed) || /^\[.*\]/.test(trimmed)) {
+        continue;
+      } else {
+        inSourceBlock = false;
+      }
+    }
+
+    filteredLines.push(line);
+  }
+
+  str = filteredLines.join('\n');
+
+  // 9. Remove stray bracketed publication names: e.g. '...growing rapidly [TechCrunch].'
+  str = str.replace(/\s*\[([A-Z][A-Za-z0-9\s&',.\-]{1,40})\](?=[.,;:!?\s]|$)/g, '');
+
+  // 10. Clean up empty brackets or parentheticals
+  str = str.replace(/\s*\[\s*\]/g, '');
+  str = str.replace(/\s*\(\s*\)/g, '');
+
+  // 11. Clean up punctuation spacing & double punctuation
+  str = str.replace(/\s+([.,;:!?])/g, '$1');
+  str = str.replace(/([.,;:!?])\s*\1+/g, '$1');
+  str = str.replace(/[ \t]{2,}/g, ' ');
+  str = str.replace(/\n\s*\n\s*\n+/g, '\n\n');
+
+  // 12. Strip weird inline markdown bolding or emphasis (**keyword**, __keyword__, ***keyword***)
+  // Professional human publications never bold buzzwords or keywords mid-sentence.
+  str = str.replace(/\*{2,3}\s*([^\*\n]+?)\s*\*{2,3}/g, '$1');
+  str = str.replace(/_{2,3}\s*([^\_\n]+?)\s*_{2,3}/g, '$1');
+
+  return str.trim();
+}
+
 function formatArticleObjectToMarkdown(obj: any): string {
   if (typeof obj === "string") return obj;
   if (!obj || typeof obj !== "object") return "";
 
   // If there's an explicit markdown field, use it
-  if (obj.markdown && typeof obj.markdown === "string") return obj.markdown;
+  if (obj.markdown && typeof obj.markdown === "string") return sanitizeSectionContent(obj.markdown);
   if (obj.report && typeof obj.report === "string") return obj.report;
 
   let md = "";
@@ -34,12 +134,17 @@ function formatArticleObjectToMarkdown(obj: any): string {
     for (const sec of obj.sections) {
       if (sec.title) md += `## ${sec.title}\n\n`;
       if (sec.image) md += `![${sec.title}](${sec.image})\n\n`;
-      if (sec.content) md += `${sec.content}\n\n`;
+      if (sec.content) md += `${sanitizeSectionContent(sec.content)}\n\n`;
     }
   }
 
-  const takeawaysContent = obj.takeaways || obj.conclusion;
-  if (takeawaysContent) {
+  let takeawaysContent = obj.takeaways || obj.conclusion;
+  if (takeawaysContent && typeof takeawaysContent === 'string') {
+    takeawaysContent = takeawaysContent
+      .split('\n')
+      .filter((l: string) => !l.trim().startsWith('#'))
+      .join('\n')
+      .trim();
     md += `## Key Takeaways & Conclusion\n\n${takeawaysContent}\n\n`;
   }
 
@@ -680,7 +785,7 @@ export function ArticleOutputViewer({
                       </div>
                     )}
                     <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                      {section.content}
+                      {sanitizeSectionContent(section.content)}
                     </div>
                   </section>
                 ))}
@@ -693,7 +798,11 @@ export function ArticleOutputViewer({
                       <span>Key Takeaways & Conclusion</span>
                     </div>
                     <div className="text-xs text-amber-950/90 leading-relaxed whitespace-pre-wrap">
-                      {structuredJsonObject.takeaways || structuredJsonObject.conclusion}
+                      {String(structuredJsonObject.takeaways || structuredJsonObject.conclusion)
+                        .split('\n')
+                        .filter((l: string) => !l.trim().startsWith('#'))
+                        .join('\n')
+                        .trim()}
                     </div>
                   </div>
                 )}

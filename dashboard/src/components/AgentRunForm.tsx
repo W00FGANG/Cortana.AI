@@ -75,7 +75,7 @@ export function AgentRunForm({
   isEmailAgent = false,
   isMarketingAgent = false,
   defaultKeywords = "Modern Web Architecture & AI Agents",
-  defaultCategory = "Technology",
+  defaultCategory = "AI",
   defaultLanguage = "en",
 }: AgentRunFormProps) {
   const router = useRouter();
@@ -1151,7 +1151,7 @@ export function AgentRunForm({
                     disabled={isLoading}
                     className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:bg-slate-100"
                   >
-                    <option value="AI">AI & Machine Learning</option>
+                    <option value="AI">AI</option>
                     <option value="Hawaii Technology">Hawaii Technology</option>
                     <option value="Software Development">Software Development</option>
                     <option value="Web Design">Web Design</option>

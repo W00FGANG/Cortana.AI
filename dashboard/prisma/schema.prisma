@@ -26,6 +26,8 @@ model Agent {
   runs           AgentRun[]
   activities     Activity[]
   approvals      Approval[]
+
+  @@index([name])
 }
 
 model Task {
@@ -46,6 +48,10 @@ model Task {
 
   runs             AgentRun[]
   approvals        Approval[]
+
+  @@index([status, startedAt])
+  @@index([status, createdAt])
+  @@index([agentId])
 }
 
 model AgentRun {
@@ -60,6 +66,9 @@ model AgentRun {
   input       String?
   output      String?
   error       String?
+
+  @@index([status, startedAt])
+  @@index([agentId])
 }
 
 model Activity {
@@ -70,6 +79,9 @@ model Activity {
   description String?
   status      String   // Success, Failed, Running
   createdAt   DateTime @default(now())
+
+  @@index([status, createdAt])
+  @@index([agentId])
 }
 
 model Approval {
@@ -83,4 +95,8 @@ model Approval {
   status      String    @default("Pending") // Pending, Approved, Rejected
   createdAt   DateTime  @default(now())
   reviewedAt  DateTime?
+
+  @@index([status])
+  @@index([agentId])
 }
+

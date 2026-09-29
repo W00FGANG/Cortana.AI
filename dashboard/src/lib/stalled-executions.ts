@@ -1,51 +1,59 @@
 import { prisma } from "@/lib/prisma";
+import { after } from "next/server";
+
+let lastRunTimestamp = 0;
+const THROTTLE_MS = 10 * 60 * 1000; // Run at most once every 10 minutes
 
 /**
  * Checks for any Task, AgentRun, or Activity that has been in "Running" status
  * for more than the specified threshold (default 6 hours) and updates them to "Stalled".
  */
-export async function updateStalledExecutions(hoursThreshold = 6) {
-  const cutoff = new Date(Date.now() - hoursThreshold * 60 * 60 * 1000);
+export async function updateStalledExecutions(hoursThreshold = 6, force = false) {
+  const now = Date.now();
+  if (!force && now - lastRunTimestamp < THROTTLE_MS) {
+    return { skipped: true, lastRunAgoMs: now - lastRunTimestamp };
+  }
+  lastRunTimestamp = now;
+
+  const cutoff = new Date(now - hoursThreshold * 60 * 60 * 1000);
 
   try {
-    // 1. Update AgentRuns running for > 6 hours
-    const stalledRuns = await prisma.agentRun.updateMany({
-      where: {
-        status: "Running",
-        startedAt: { lt: cutoff },
-      },
-      data: {
-        status: "Stalled",
-        completedAt: new Date(),
-        error: `Execution automatically marked as Stalled after exceeding ${hoursThreshold} hours.`,
-      },
-    });
-
-    // 2. Update Tasks running for > 6 hours
-    const stalledTasks = await prisma.task.updateMany({
-      where: {
-        status: "Running",
-        OR: [
-          { startedAt: { lt: cutoff } },
-          { startedAt: null, createdAt: { lt: cutoff } },
-        ],
-      },
-      data: {
-        status: "Stalled",
-        completedAt: new Date(),
-      },
-    });
-
-    // 3. Update Activities running for > 6 hours
-    const stalledActivities = await prisma.activity.updateMany({
-      where: {
-        status: "Running",
-        createdAt: { lt: cutoff },
-      },
-      data: {
-        status: "Stalled",
-      },
-    });
+    // Run all three updates in parallel
+    const [stalledRuns, stalledTasks, stalledActivities] = await Promise.all([
+      prisma.agentRun.updateMany({
+        where: {
+          status: "Running",
+          startedAt: { lt: cutoff },
+        },
+        data: {
+          status: "Stalled",
+          completedAt: new Date(),
+          error: `Execution automatically marked as Stalled after exceeding ${hoursThreshold} hours.`,
+        },
+      }),
+      prisma.task.updateMany({
+        where: {
+          status: "Running",
+          OR: [
+            { startedAt: { lt: cutoff } },
+            { startedAt: null, createdAt: { lt: cutoff } },
+          ],
+        },
+        data: {
+          status: "Stalled",
+          completedAt: new Date(),
+        },
+      }),
+      prisma.activity.updateMany({
+        where: {
+          status: "Running",
+          createdAt: { lt: cutoff },
+        },
+        data: {
+          status: "Stalled",
+        },
+      }),
+    ]);
 
     return {
       stalledRunsCount: stalledRuns.count,
@@ -59,5 +67,22 @@ export async function updateStalledExecutions(hoursThreshold = 6) {
       stalledTasksCount: 0,
       stalledActivitiesCount: 0,
     };
+  }
+}
+
+/**
+ * Schedules updateStalledExecutions in the background after the response is rendered/sent.
+ * Never blocks the main rendering thread or delays page load.
+ */
+export function scheduleStalledExecutionsCheck() {
+  try {
+    after(async () => {
+      await updateStalledExecutions();
+    });
+  } catch {
+    // If called outside request context (or after() fails), run asynchronously in background
+    setTimeout(() => {
+      updateStalledExecutions().catch(() => {});
+    }, 0);
   }
 }

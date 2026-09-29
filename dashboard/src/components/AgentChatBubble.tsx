@@ -10,7 +10,7 @@ interface AgentChatBubbleProps {
   agentAvatar?: string | null;
   agentIcon: React.ReactNode;
   currentTaskTitle?: string;
-  recentActivities: string[];
+  recentActivities?: string[];
   theme: {
     bg: string;
     tail: string;
@@ -26,7 +26,7 @@ export function AgentChatBubble({
   agentAvatar,
   agentIcon,
   currentTaskTitle,
-  recentActivities,
+  recentActivities = [],
   theme,
 }: AgentChatBubbleProps) {
   const hasStarted = useRef(false);
@@ -156,9 +156,7 @@ export function AgentChatBubble({
   };
 
   return (
-    <div className={`flex items-start gap-4 p-5 rounded-2xl border shadow-sm relative ml-2 mt-4 ${theme.bg}`}>
-      {/* Chat Bubble Tail */}
-      <div className={`absolute -left-2 top-6 w-4 h-4 border-l border-b transform rotate-45 ${theme.tail}`}></div>
+    <div className={`flex items-start gap-4 p-5 rounded-2xl border shadow-sm relative mt-4 ${theme.bg}`}>
       
       <div className="shrink-0 z-10">
         {agentAvatar ? (

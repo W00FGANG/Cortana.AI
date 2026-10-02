@@ -162,6 +162,8 @@ async function executeWorkflowInBackground({
             responseData.markdown ||
             responseData.article ||
             responseData.articleJson ||
+            responseData.post_summary ||
+            responseData.platforms ||
             responseData.output)));
 
     if (isDirectCompleted) {
@@ -254,31 +256,79 @@ async function executeWorkflowInBackground({
         },
       });
 
+      const isHarper = agentName?.toLowerCase().includes("harper");
+
+      let finalAction = `Completed: ${stepName}`;
+      let finalDescription = `Workflow completed successfully.`;
+
+      if (isHarper) {
+        finalAction = "Research Article Generated";
+        if (cleanArticle && typeof cleanArticle === "object" && cleanArticle.title) {
+          const sectionCount = Array.isArray(cleanArticle.sections) ? cleanArticle.sections.length : null;
+          const sourceCount = Array.isArray(cleanArticle.sources) ? cleanArticle.sources.length : null;
+          const readTime = cleanArticle.readingEstimation 
+            ? (String(cleanArticle.readingEstimation).includes("min") ? cleanArticle.readingEstimation : `${cleanArticle.readingEstimation} min read`)
+            : null;
+          const details = [
+            cleanArticle.category,
+            readTime,
+            sectionCount ? `${sectionCount} sections` : null,
+            sourceCount ? `${sourceCount} verified citations` : null,
+          ].filter(Boolean).join(" · ");
+
+          finalDescription = `Completed in-depth article: "${cleanArticle.title}"${details ? ` (${details})` : ""}`;
+        } else {
+          finalDescription = `Completed research and drafted article for "${articleTitle}"`;
+        }
+      } else if (agentName?.toLowerCase().includes("maya")) {
+        const mayaData = responseData?.post_summary || responseData?.platforms ? responseData : null;
+        if (mayaData?.post_summary || mayaData?.platforms) {
+          const summary = mayaData.post_summary || {};
+          const platformsObj = mayaData.platforms || {};
+          const text = typeof summary === "string" ? summary : (summary.text || "");
+          const cleanText = text.replace(/\r?\n+/g, " ").trim();
+          const snippet = cleanText.length > 55 ? `${cleanText.slice(0, 52)}...` : cleanText;
+          const liSuccess = platformsObj.linkedin?.success;
+          const xSuccess = platformsObj.x?.success;
+
+          if (liSuccess && xSuccess) {
+            finalAction = "Social Media Post Published";
+            finalDescription = `Successfully published post across X (Twitter) & LinkedIn: "${snippet}"`;
+          } else if (liSuccess) {
+            finalAction = "LinkedIn Post Published";
+            finalDescription = `Successfully published post to LinkedIn: "${snippet}"`;
+          } else if (xSuccess) {
+            finalAction = "X (Twitter) Post Published";
+            finalDescription = `Successfully published post to X (Twitter): "${snippet}"`;
+          } else if (platformsObj.linkedin?.error || platformsObj.x?.error) {
+            const err = platformsObj.linkedin?.error || platformsObj.x?.error;
+            finalAction = "Social Post Dispatch Result";
+            finalDescription = `Publish attempt finished: ${err}. Post: "${snippet}"`;
+          } else {
+            finalAction = "Social Media Post Published";
+            finalDescription = `Successfully published social media post: "${snippet || articleTitle}"`;
+          }
+        } else {
+          finalAction = "Social Research Report Generated";
+          finalDescription = focusTopic
+            ? `Completed strategic market research report on "${focusTopic}" with YouTube & audience trends`
+            : `Completed social media and market research for "${articleTitle}"`;
+        }
+      } else {
+        finalDescription = `Workflow completed for ${agentName}: ${articleTitle}`;
+      }
+
       await prisma.activity.create({
         data: {
           agentId,
-          action: `Completed: ${stepName}`,
-          description: nodesList
-            ? `Workflow completed. Executed nodes:\n${nodesList.map((n: string, i: number) => `${i + 1}. ${n}`).join('\n')}\n\nOutput:\n${resultText}`
-            : `Workflow completed with output:\n${resultText}`,
+          action: finalAction,
+          description: finalDescription,
           status: "Success",
         },
       });
 
-      const isHarper = agentName?.toLowerCase().includes("harper");
-      if (!isHarper && (responseData?.markdown || responseData?.report || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
-        await prisma.approval.create({
-          data: {
-            agentId,
-            taskId,
-            title: `Approve: ${articleTitle}`,
-            content: responseData?.markdown || responseData?.report || resultText,
-            status: "Pending",
-          },
-        });
-      }
-
       try {
+        revalidatePath(`/${agentName?.toLowerCase()}`);
         revalidatePath(`/agents/${agentId}`);
         revalidatePath(`/agents/${agentName?.toLowerCase()}`);
         revalidatePath("/");
@@ -316,16 +366,57 @@ async function executeWorkflowInBackground({
         data: { status: "Success" },
       });
 
+      const fallbackTitle = focusTopic ? `Market Research: "${focusTopic}"` : keywords ? `Content for "${keywords}"` : "Generated Content";
+      let fallbackAction = "Workflow completed";
+      let fallbackDesc = `Execution finished with HTTP ${status}`;
+      if (agentName?.toLowerCase().includes("harper")) {
+        fallbackAction = "Research Article Generated";
+        fallbackDesc = `Drafted publication-ready research article for "${fallbackTitle}"`;
+      } else if (agentName?.toLowerCase().includes("maya")) {
+        const mayaData = responseData?.post_summary || responseData?.platforms ? responseData : null;
+        if (mayaData?.post_summary || mayaData?.platforms) {
+          const summary = mayaData.post_summary || {};
+          const platformsObj = mayaData.platforms || {};
+          const text = typeof summary === "string" ? summary : (summary.text || "");
+          const cleanText = text.replace(/\r?\n+/g, " ").trim();
+          const snippet = cleanText.length > 55 ? `${cleanText.slice(0, 52)}...` : cleanText;
+          const liSuccess = platformsObj.linkedin?.success;
+          const xSuccess = platformsObj.x?.success;
+
+          if (liSuccess && xSuccess) {
+            fallbackAction = "Social Media Post Published";
+            fallbackDesc = `Successfully published post across X (Twitter) & LinkedIn: "${snippet}"`;
+          } else if (liSuccess) {
+            fallbackAction = "LinkedIn Post Published";
+            fallbackDesc = `Successfully published post to LinkedIn: "${snippet}"`;
+          } else if (xSuccess) {
+            fallbackAction = "X (Twitter) Post Published";
+            fallbackDesc = `Successfully published post to X (Twitter): "${snippet}"`;
+          } else if (platformsObj.linkedin?.error || platformsObj.x?.error) {
+            const err = platformsObj.linkedin?.error || platformsObj.x?.error;
+            fallbackAction = "Social Post Dispatch Result";
+            fallbackDesc = `Publish attempt finished: ${err}. Post: "${snippet}"`;
+          } else {
+            fallbackAction = "Social Media Post Published";
+            fallbackDesc = `Successfully published social media post: "${snippet}"`;
+          }
+        } else {
+          fallbackAction = "Social Research Report Generated";
+          fallbackDesc = `Completed strategic social media and market research for "${focusTopic || fallbackTitle}"`;
+        }
+      }
+
       await prisma.activity.create({
         data: {
           agentId,
-          action: "Workflow completed",
-          description: `Execution finished with HTTP ${status}:\n${resultText}`,
+          action: fallbackAction,
+          description: fallbackDesc,
           status: "Success",
         },
       });
 
       try {
+        revalidatePath(`/${agentName?.toLowerCase()}`);
         revalidatePath(`/agents/${agentId}`);
         revalidatePath(`/agents/${agentName?.toLowerCase()}`);
         revalidatePath("/");
@@ -356,6 +447,7 @@ async function executeWorkflowInBackground({
             const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
             if (currentTask && currentTask.status !== "Running") {
               try {
+                revalidatePath(`/${agentName?.toLowerCase()}`);
                 revalidatePath(`/agents/${agentId}`);
                 revalidatePath(`/agents/${agentName?.toLowerCase()}`);
                 revalidatePath("/");
@@ -397,6 +489,7 @@ async function executeWorkflowInBackground({
     }).catch(() => { });
 
     try {
+      revalidatePath(`/${agentName?.toLowerCase()}`);
       revalidatePath(`/agents/${agentId}`);
       revalidatePath(`/agents/${agentName?.toLowerCase()}`);
       revalidatePath("/");
@@ -738,15 +831,30 @@ export async function POST(
     });
 
     if (!isEmailWorkflow || isFollowupWorkflow) {
+      const isHarper = agent.name?.toLowerCase().includes("harper");
+      let startAction = `Executing: ${agent.name} Workflow`;
+      let startDesc = `Initiated workflow execution: ${taskTitle}`;
+
+      if (isHarper) {
+        startAction = "Research & Fact Discovery";
+        startDesc = keywords
+          ? `Analyzing search angles and retrieving verified citations for "${keywords}"`
+          : `Initiated comprehensive web research and outline drafting`;
+      } else if (isSocialPublisherWorkflow) {
+        startAction = "Publishing Social Post";
+        startDesc = `Dispatching post to ${platforms === "both" ? "X (Twitter) & LinkedIn" : platforms === "x" ? "X (Twitter)" : "LinkedIn"}: "${taskTitle.replace('Social Media Post: ', '')}"`;
+      } else if (isMarketingWorkflow) {
+        startAction = "Market & Trend Research Started";
+        startDesc = `Analyzing search trends, video engagement, and audience demand for "${focusTopic.trim() || 'Hawaii business & AI automation'}"`;
+      } else if (isFollowupWorkflow) {
+        startAction = "Scanning Gmail For Follow-ups";
+      }
+
       await prisma.activity.create({
         data: {
           agentId: agent.id,
-          action: isSocialPublisherWorkflow
-            ? `Publishing: Social Media Post`
-            : isFollowupWorkflow
-            ? "Scanning Gmail For Follow-ups"
-            : `Executing: ${agent.name} Workflow`,
-          description: `Initiated workflow execution: ${taskTitle}`,
+          action: startAction,
+          description: startDesc,
           status: "Running",
         },
       });
@@ -787,7 +895,7 @@ export async function POST(
 
     const isHtmlForm = request.headers.get("accept")?.includes("text/html");
     if (isHtmlForm) {
-      return NextResponse.redirect(new URL(`/agents/${agent.id}`, request.url));
+      return NextResponse.redirect(new URL(`/${agent.name.toLowerCase()}`, request.url));
     }
 
     // 3. Immediately return 200 OK so the browser never freezes

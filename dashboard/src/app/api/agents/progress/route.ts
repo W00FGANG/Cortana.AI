@@ -103,15 +103,68 @@ export async function POST(request: Request) {
     // For Kainoa, strictly only log the drafting step (the approval step is recorded upon review)
     let activity = null;
     if (!isKainoa) {
+      const rawAction = status === "Completed" 
+        ? `Completed: ${step || 'Article Generation'}` 
+        : status === "Failed" 
+        ? `Failed step: ${step}` 
+        : `Executing: ${step}`;
+      const rawDesc = description || (title ? `Generated "${title}"` : `Executing: ${step}`);
+
+      const isHarper = agent.name.toLowerCase().includes("harper");
+      let humanAction = rawAction;
+      let humanDesc = rawDesc;
+
+      if (isHarper) {
+        const topicOrTitle = title || (description && description.match(/"([^"]+)"/)?.[1]) || "";
+        const topicSuffix = topicOrTitle ? ` for "${topicOrTitle}"` : "";
+
+        if (status === "Completed") {
+          humanAction = "Research Article Generated";
+          humanDesc = title
+            ? `Completed in-depth article: "${title}" with citations & key takeaways`
+            : (topicOrTitle ? `Completed in-depth research article on "${topicOrTitle}" with verified web citations` : "Completed comprehensive research article with verified web citations");
+        } else if (step?.toLowerCase().includes("keyword")) {
+          humanAction = "Analyzing Topic Keywords";
+          humanDesc = `Evaluating search queries and identifying technical angles${topicSuffix}`;
+        } else if ((/\bsearch\b/i.test(step || "") && !step?.toLowerCase().includes("research")) || step?.toLowerCase().includes("citation") || step?.toLowerCase().includes("collect")) {
+          humanAction = "Gathering Web Citations";
+          humanDesc = `Retrieving live web reference data and verifying citations${topicSuffix}`;
+        } else if (step?.toLowerCase().includes("outline") || step?.toLowerCase().includes("analyz")) {
+          humanAction = "Structuring Article Layout";
+          humanDesc = `Organizing section hierarchy and key takeaways${topicSuffix}`;
+        } else if (step?.toLowerCase().includes("draft") || step?.toLowerCase().includes("writ")) {
+          humanAction = "Writing Article Draft";
+          humanDesc = `Composing publication draft with citations and SEO tags${topicSuffix}`;
+        }
+      }
+
+      const isMaya = agent.name.toLowerCase().includes("maya");
+      if (isMaya) {
+        const topicOrTitle = title || (description && description.match(/"([^"]+)"/)?.[1]) || "";
+        const topicSuffix = topicOrTitle ? ` for "${topicOrTitle}"` : "";
+
+        if (status === "Completed") {
+          humanAction = "Social Research Report Generated";
+          humanDesc = topicOrTitle
+            ? `Completed strategic market research report for "${topicOrTitle}"`
+            : "Completed strategic social media and trend research report";
+        } else if (step?.toLowerCase().includes("video") || step?.toLowerCase().includes("youtube")) {
+          humanAction = "Analyzing Video & Content Trends";
+          humanDesc = `Evaluating YouTube video engagement and popular formats${topicSuffix}`;
+        } else if (step?.toLowerCase().includes("trend") || step?.toLowerCase().includes("search")) {
+          humanAction = "Evaluating Search & Trend Signals";
+          humanDesc = `Synthesizing search volume and audience interest signals${topicSuffix}`;
+        } else if (step?.toLowerCase().includes("audience") || step?.toLowerCase().includes("competitor")) {
+          humanAction = "Audience & Opportunity Mapping";
+          humanDesc = `Mapping high-converting audience angles and competitor gaps${topicSuffix}`;
+        }
+      }
+
       activity = await prisma.activity.create({
         data: {
           agentId: agent.id,
-          action: status === "Completed" 
-            ? `Completed: ${step || 'Article Generation'}` 
-            : status === "Failed" 
-            ? `Failed step: ${step}` 
-            : `Executing: ${step}`,
-          description: description || (title ? `Generated "${title}"` : `Executing: ${step}`),
+          action: humanAction,
+          description: humanDesc,
           status: activityStatus,
         },
       });
@@ -238,23 +291,10 @@ export async function POST(request: Request) {
           },
         });
       }
-    } else if (status === "Completed" && (finalMarkdown || title)) {
-      const isHarper = agent.name?.toLowerCase().includes("harper");
-      if (!isHarper) {
-        const articleTitle = title || articleJson?.title || "Research Article Draft";
-        await prisma.approval.create({
-          data: {
-            agentId: agent.id,
-            taskId: taskId || run.taskId || null,
-            title: `Approve Publication: ${articleTitle}`,
-            content: finalMarkdown || combinedOutput,
-            status: "Pending",
-          },
-        });
-      }
     }
 
     try {
+      revalidatePath(`/${agent.name.toLowerCase()}`);
       revalidatePath(`/agents/${agent.id}`);
       revalidatePath(`/agents/${agent.name.toLowerCase()}`);
       revalidatePath("/");

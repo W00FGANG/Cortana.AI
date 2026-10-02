@@ -291,20 +291,6 @@ export async function POST(request: Request) {
           },
         });
       }
-    } else if (status === "Completed" && (finalMarkdown || title)) {
-      const isHarper = agent.name?.toLowerCase().includes("harper");
-      if (!isHarper) {
-        const articleTitle = title || articleJson?.title || "Research Article Draft";
-        await prisma.approval.create({
-          data: {
-            agentId: agent.id,
-            taskId: taskId || run.taskId || null,
-            title: `Approve Publication: ${articleTitle}`,
-            content: finalMarkdown || combinedOutput,
-            status: "Pending",
-          },
-        });
-      }
     }
 
     try {

@@ -30,22 +30,159 @@ export function AgentChatBubble({
   theme,
 }: AgentChatBubbleProps) {
   const hasStarted = useRef(false);
+  const [isMounted, setIsMounted] = useState(false);
   const [completion, setCompletion] = useState("");
   const [displayedText, setDisplayedText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
-  const isVoiceEnabledRef = useRef(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+  const isVoiceEnabledRef = useRef(false);
+  const [autoSpeakEnabled, setAutoSpeakEnabled] = useState(true);
+  const autoSpeakRef = useRef(true);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+  const isAudioMutedRef = useRef(false);
 
-  const toggleVoice = () => {
-    const newState = !isVoiceEnabled;
-    setIsVoiceEnabled(newState);
-    isVoiceEnabledRef.current = newState;
-    
-    // Immediately stop speaking if muted
-    if (!newState && typeof window !== "undefined" && window.speechSynthesis) {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("corvana_voice_assistant");
+      const enabled = stored !== "false";
+      setIsVoiceEnabled(enabled);
+      isVoiceEnabledRef.current = enabled;
+
+      const as = localStorage.getItem("corvana_voice_autospeak");
+      const asEnabled = as !== "false";
+      setAutoSpeakEnabled(asEnabled);
+      autoSpeakRef.current = asEnabled;
+      setIsAudioMuted(!asEnabled);
+      isAudioMutedRef.current = !asEnabled;
+
+      setIsMounted(true);
+
+      if (enabled && !hasStarted.current) {
+        hasStarted.current = true;
+        generateResponse();
+      }
+
+      const handleVoiceChange = (e: any) => {
+        if (e.detail?.enabled !== undefined) {
+          const val = e.detail.enabled;
+          setIsVoiceEnabled(val);
+          isVoiceEnabledRef.current = val;
+          if (!val && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+          } else if (val && !hasStarted.current) {
+            hasStarted.current = true;
+            generateResponse();
+          }
+        }
+
+        if (e.detail?.autospeak !== undefined) {
+          const asVal = e.detail.autospeak;
+          setAutoSpeakEnabled(asVal);
+          autoSpeakRef.current = asVal;
+          setIsAudioMuted(!asVal);
+          isAudioMutedRef.current = !asVal;
+          if (!asVal && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+          }
+        } else {
+          const latestAs = localStorage.getItem("corvana_voice_autospeak") !== "false";
+          setAutoSpeakEnabled(latestAs);
+          autoSpeakRef.current = latestAs;
+          setIsAudioMuted(!latestAs);
+          isAudioMutedRef.current = !latestAs;
+        }
+      };
+
+      window.addEventListener("corvana_voice_setting_changed", handleVoiceChange);
+      window.addEventListener("storage", handleVoiceChange);
+      return () => {
+        window.removeEventListener("corvana_voice_setting_changed", handleVoiceChange);
+        window.removeEventListener("storage", handleVoiceChange);
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      };
+    }
+  }, []);
+
+  const speakText = (text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+    if (!text.trim()) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Apply voice settings from localStorage
+    const savedRate = localStorage.getItem("corvana_voice_rate");
+    if (savedRate) utterance.rate = parseFloat(savedRate) || 1.0;
+
+    const savedPitch = localStorage.getItem("corvana_voice_pitch");
+    if (savedPitch) utterance.pitch = parseFloat(savedPitch) || 1.0;
+
+    const savedVoice = localStorage.getItem("corvana_voice_name");
+    if (savedVoice) {
+      const voices = window.speechSynthesis.getVoices();
+      const match = voices.find((v) => v.name === savedVoice);
+      if (match) utterance.voice = match;
+    }
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      (window as any)._agentUtterance = null;
+    };
+
+    utterance.onerror = (e) => {
+      console.warn("Speech synthesis error or autoplay restricted:", e);
+      setIsSpeaking(false);
+      (window as any)._agentUtterance = null;
+    };
+
+    // Keep reference on window to prevent Chrome V8 garbage collection bug
+    (window as any)._agentUtterance = utterance;
+
+    window.speechSynthesis.speak(utterance);
+
+    // Chrome resume workaround
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+    }
+  };
+
+  const stopSpeaking = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      (window as any)._agentUtterance = null;
+    }
+  };
+
+  const handleSpeakerButtonClick = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsAudioMuted(true);
+      isAudioMutedRef.current = true;
+    } else if (isAudioMuted) {
+      setIsAudioMuted(false);
+      isAudioMutedRef.current = false;
+      const textToSpeak = completion || displayedText;
+      if (textToSpeak) {
+        speakText(textToSpeak);
+      }
+    } else {
+      const textToSpeak = completion || displayedText;
+      if (textToSpeak) {
+        speakText(textToSpeak);
+      }
     }
   };
 
@@ -65,6 +202,7 @@ export function AgentChatBubble({
     setCompletion("");
     setDisplayedText("");
     setError(null);
+    stopSpeaking();
 
     fetch(`/api/agents/${agentId}/chat`, {
       method: "POST",
@@ -97,11 +235,9 @@ export function AgentChatBubble({
           }
           setIsLoading(false);
 
-          // Speak the final response
-          if (isVoiceEnabledRef.current && fullText && typeof window !== "undefined" && window.speechSynthesis) {
-            window.speechSynthesis.cancel(); // Cancel any ongoing speech
-            const utterance = new SpeechSynthesisUtterance(fullText);
-            window.speechSynthesis.speak(utterance);
+          // Auto-Speak final response only if enabled in Settings
+          if (isVoiceEnabledRef.current && autoSpeakRef.current && fullText) {
+            speakText(fullText);
           }
         }
         
@@ -113,16 +249,9 @@ export function AgentChatBubble({
       });
   };
 
-  useEffect(() => {
-    if (!hasStarted.current) {
-      hasStarted.current = true;
-      generateResponse();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const toggleListen = () => {
     if (isListening) return;
+    stopSpeaking();
     
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) {
@@ -155,6 +284,10 @@ export function AgentChatBubble({
     recognition.start();
   };
 
+  if (!isMounted || !isVoiceEnabled) {
+    return null;
+  }
+
   return (
     <div className={`flex items-start gap-4 p-5 rounded-2xl border shadow-sm relative mt-4 ${theme.bg}`}>
       
@@ -179,15 +312,24 @@ export function AgentChatBubble({
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={toggleVoice}
+              onClick={handleSpeakerButtonClick}
+              disabled={isLoading || (!completion && !displayedText)}
               className={`p-1.5 rounded-full transition-colors ${
-                !isVoiceEnabled
-                  ? "bg-slate-100 text-slate-400 dark:bg-slate-800"
+                isSpeaking
+                  ? "bg-blue-600 text-white animate-pulse"
+                  : isAudioMuted
+                  ? "bg-slate-100 text-slate-400 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:hover:bg-slate-700"
                   : "bg-indigo-50 text-indigo-500 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
-              }`}
-              title={isVoiceEnabled ? "Mute Agent Voice" : "Enable Agent Voice"}
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              title={
+                isSpeaking
+                  ? "Stop Speaking"
+                  : isAudioMuted
+                  ? "Unmute & Speak Status"
+                  : "Replay Status Aloud"
+              }
             >
-              {isVoiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {isAudioMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>
             <button
               onClick={toggleListen}

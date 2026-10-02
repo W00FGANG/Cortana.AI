@@ -15,6 +15,14 @@ async function ApprovalsContent() {
           mode: "insensitive",
         },
       },
+      NOT: [
+        {
+          title: {
+            contains: "Research",
+            mode: "insensitive",
+          },
+        },
+      ],
     },
     include: {
       agent: true,

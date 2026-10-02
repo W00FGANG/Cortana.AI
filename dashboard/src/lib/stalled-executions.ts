@@ -6,16 +6,16 @@ const THROTTLE_MS = 10 * 60 * 1000; // Run at most once every 10 minutes
 
 /**
  * Checks for any Task, AgentRun, or Activity that has been in "Running" status
- * for more than the specified threshold (default 6 hours) and updates them to "Stalled".
+ * for more than the specified threshold (default 60 minutes) and updates them to "Stalled".
  */
-export async function updateStalledExecutions(hoursThreshold = 6, force = false) {
+export async function updateStalledExecutions(minutesThreshold = 60, force = false) {
   const now = Date.now();
   if (!force && now - lastRunTimestamp < THROTTLE_MS) {
     return { skipped: true, lastRunAgoMs: now - lastRunTimestamp };
   }
   lastRunTimestamp = now;
 
-  const cutoff = new Date(now - hoursThreshold * 60 * 60 * 1000);
+  const cutoff = new Date(now - minutesThreshold * 60 * 1000);
 
   try {
     // Run all three updates in parallel
@@ -28,7 +28,7 @@ export async function updateStalledExecutions(hoursThreshold = 6, force = false)
         data: {
           status: "Stalled",
           completedAt: new Date(),
-          error: `Execution automatically marked as Stalled after exceeding ${hoursThreshold} hours.`,
+          error: `Execution automatically marked as Stalled after exceeding ${minutesThreshold} minutes.`,
         },
       }),
       prisma.task.updateMany({

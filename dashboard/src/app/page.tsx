@@ -34,6 +34,14 @@ async function DashboardMetrics() {
             mode: "insensitive",
           },
         },
+        NOT: [
+          {
+            title: {
+              contains: "Research",
+              mode: "insensitive",
+            },
+          },
+        ],
       },
     }),
   ]);

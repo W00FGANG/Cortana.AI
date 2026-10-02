@@ -326,17 +326,6 @@ async function executeWorkflowInBackground({
           status: "Success",
         },
       });
-      if (!isHarper && (responseData?.markdown || responseData?.report || responseData?.body || responseData?.result || responseData?.articleJson || (typeof responseData === "object" && Object.keys(responseData).length > 0))) {
-        await prisma.approval.create({
-          data: {
-            agentId,
-            taskId,
-            title: `Approve: ${articleTitle}`,
-            content: responseData?.markdown || responseData?.report || resultText,
-            status: "Pending",
-          },
-        });
-      }
 
       try {
         revalidatePath(`/${agentName?.toLowerCase()}`);

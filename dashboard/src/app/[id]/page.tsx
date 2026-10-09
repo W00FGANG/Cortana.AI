@@ -16,6 +16,7 @@ import { LiveRunMonitor } from "@/components/LiveRunMonitor";
 import { ArticleOutputViewer } from "@/components/ArticleOutputViewer";
 import { SocialPublisherOutputViewer } from "@/components/SocialPublisherOutputViewer";
 import { JsonFileOutputViewer } from "@/components/JsonFileOutputViewer";
+import { LeadDiscoveryOutputViewer } from "@/components/LeadDiscoveryOutputViewer";
 import { AgentRunForm } from "@/components/AgentRunForm";
 import { AgentChatBubble } from "@/components/AgentChatBubble";
 
@@ -231,14 +232,28 @@ async function AgentOutputWrapper({
     agentRole.toLowerCase().includes("marketing") ||
     n8nWorkflowId === "6SfepVmMljnVsWBG";
 
+  const isLeadAgent =
+    agentName.toLowerCase().includes("kent") ||
+    agentRole.toLowerCase().includes("lead") ||
+    n8nWorkflowId === "qspGwi1DJSO0X9fw" ||
+    n8nWorkflowId === "GYDopN1Ss4cZpWSR";
+
   const [completedTask, completedRun, approvals] = await Promise.all([
     prisma.task.findFirst({
-      where: { agentId, result: { not: null } },
-      orderBy: { createdAt: "desc" },
+      where: {
+        agentId,
+        status: "Completed",
+        result: { not: null },
+      },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
     }),
     prisma.agentRun.findFirst({
-      where: { agentId, output: { not: null } },
-      orderBy: { startedAt: "desc" },
+      where: {
+        agentId,
+        status: "Completed",
+        output: { not: null },
+      },
+      orderBy: [{ completedAt: "desc" }, { startedAt: "desc" }],
     }),
     isEmailAgent
       ? prisma.approval.findMany({
@@ -249,7 +264,22 @@ async function AgentOutputWrapper({
       : Promise.resolve([]),
   ]);
 
-  const latestArticleOutput = completedTask?.result || completedRun?.output;
+  const fallbackTask = !completedTask
+    ? await prisma.task.findFirst({
+        where: { agentId, result: { not: null } },
+        orderBy: { createdAt: "desc" },
+      })
+    : null;
+
+  const activeTask = completedTask || fallbackTask;
+  const activeRun = completedRun;
+
+  const latestArticleOutput =
+    activeTask?.completedAt && activeRun?.completedAt
+      ? activeTask.completedAt >= activeRun.completedAt
+        ? activeTask.result
+        : activeRun.output
+      : activeTask?.result || activeRun?.output;
 
   let isSocialPublisherOutput = false;
   if (isMarketingAgent && latestArticleOutput) {
@@ -303,6 +333,27 @@ async function AgentOutputWrapper({
         emailWorkflowJsonOutput = JSON.stringify(taskApprovedEmails, null, 2);
       }
     }
+  }
+
+  let isLeadOutput = isLeadAgent;
+  if (!isLeadOutput && latestArticleOutput) {
+    try {
+      const parsed = JSON.parse(latestArticleOutput);
+      if (parsed && (parsed.leads || parsed.targeting_strategy || parsed.total_leads_found)) {
+        isLeadOutput = true;
+      }
+    } catch {}
+  }
+
+  if (isLeadOutput && latestArticleOutput) {
+    return (
+      <div className="animate-in fade-in duration-300">
+        <LeadDiscoveryOutputViewer
+          outputData={latestArticleOutput}
+          defaultTitle={completedTask?.title || "Lead Intelligence Dossier"}
+        />
+      </div>
+    );
   }
 
   if (isMarketingAgent && isSocialPublisherOutput && latestArticleOutput) {
@@ -502,6 +553,19 @@ export default async function AgentProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const [runningTask, runningRun] = await Promise.all([
+    prisma.task.findFirst({
+      where: { agentId: agent.id, status: "Running" },
+      select: { id: true },
+    }),
+    prisma.agentRun.findFirst({
+      where: { agentId: agent.id, status: "Running" },
+      select: { id: true },
+    }),
+  ]);
+
+  const isRunning = Boolean(runningTask || runningRun);
+
   const isArticleGenerator =
     agent.name.toLowerCase().includes("harper") ||
     agent.role.toLowerCase().includes("article") ||
@@ -517,6 +581,12 @@ export default async function AgentProfilePage({ params }: PageProps) {
     agent.name.toLowerCase().includes("maya") ||
     agent.role.toLowerCase().includes("marketing") ||
     agent.n8nWorkflowId === "6SfepVmMljnVsWBG";
+
+  const isLeadAgent =
+    agent.name.toLowerCase().includes("kent") ||
+    agent.role.toLowerCase().includes("lead") ||
+    agent.n8nWorkflowId === "qspGwi1DJSO0X9fw" ||
+    agent.n8nWorkflowId === "GYDopN1Ss4cZpWSR";
 
   const style = getAgentStyle(agent.name);
   const Icon = style.icon;
@@ -606,7 +676,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
             </div>
           </div>
 
-          <LiveRunMonitor isRunning={false} agentId={agent.id} />
+          <LiveRunMonitor isRunning={isRunning} agentId={agent.id} />
         </div>
         
         <AgentChatBubble
@@ -628,12 +698,13 @@ export default async function AgentProfilePage({ params }: PageProps) {
         {/* Main Column */}
         <div className="lg:col-span-2 space-y-8">
           {/* Interactive Trigger Panel - RENDERS IMMEDIATELY FOR FAST INTERACTION */}
-          {(isArticleGenerator || isEmailAgent || isMarketingAgent) && (
+          {(isArticleGenerator || isEmailAgent || isMarketingAgent || isLeadAgent) && (
             <AgentRunForm
               agentId={agent.id}
               agentName={agent.name}
               isEmailAgent={isEmailAgent}
               isMarketingAgent={isMarketingAgent}
+              isLeadAgent={isLeadAgent}
             />
           )}
 

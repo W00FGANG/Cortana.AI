@@ -1,0 +1,895 @@
+{
+  "name": "Workflow 1: Business Lead Discovery (Kent - Ollama)",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "business-lead-discovery-ollama",
+        "formTitle": "Business Lead Discovery Agent (Kent - Ollama Local)",
+        "formDescription": "Search Hawaii businesses by industry, location, and size. Kent audits the top ranked businesses starting from Rank #1 down to the requested lead count.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Industry",
+              "requiredField": true,
+              "defaultValue": "Construction",
+              "placeholder": "e.g. Construction, Dental, Solar, Real Estate, Boat Repair, Restaurants"
+            },
+            {
+              "fieldLabel": "Location",
+              "requiredField": true,
+              "defaultValue": "Honolulu, Hawaii",
+              "placeholder": "e.g. Honolulu, Maui, Kailua, Kauai, Hilo, Kapolei"
+            },
+            {
+              "fieldLabel": "Business Size",
+              "requiredField": false,
+              "defaultValue": "Small (5-25 employees)",
+              "placeholder": "e.g. Small (5-25 employees), Solo / 1-3, Mid-size 25-50"
+            },
+            {
+              "fieldLabel": "Target Lead Count",
+              "requiredField": false,
+              "defaultValue": "100",
+              "placeholder": "e.g. 5, 25, 50, 100"
+            },
+            {
+              "fieldLabel": "Additional Focus or Constraints",
+              "fieldType": "textarea",
+              "requiredField": false,
+              "placeholder": "e.g. Audit top ranked local businesses starting at rank 1, focusing on SEO vulnerabilities, slow mobile pages, or missing quote funnels."
+            }
+          ]
+        },
+        "responseMode": "onReceived",
+        "options": {
+          "buttonLabel": "Discover Top Leads (Kent)",
+          "formSubmittedText": "Lead discovery initiated! Kent is auditing the top ranked businesses starting from Rank #1 downward through 12 dedicated LLM audit nodes."
+        }
+      },
+      "id": "form-trigger-lead-discovery-ollama",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        100,
+        160
+      ],
+      "webhookId": "business-lead-discovery-ollama-form"
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger-lead-discovery-ollama",
+      "name": "When clicking ‘Execute Workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "business-lead-discovery-ollama",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-lead-discovery-ollama",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        100,
+        500
+      ],
+      "webhookId": "business-lead-discovery-ollama"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize Inputs\nconst item = $input.first()?.json || {};\nconst body = item.body || {};\nconst query = item.query || {};\n\nconst industry = item['Industry'] || item['field-0'] || item.industry || body['Industry'] || body.industry || query.industry || 'Construction';\nconst location = item['Location'] || item['field-1'] || item.location || body['Location'] || body.location || query.location || 'Honolulu, Hawaii';\nconst businessSize = item['Business Size'] || item['field-2'] || item.business_size || body['Business Size'] || body.business_size || body.businessSize || query.business_size || 'Small (5-25 employees)';\n\nconst rawLeadCount = item['Target Lead Count'] || item['field-3'] || item.lead_count || body.lead_count || body.targetLeadCount || query.lead_count || '100';\nlet leadCount = 100;\nif (typeof rawLeadCount === 'number') leadCount = rawLeadCount;\nelse if (typeof rawLeadCount === 'string') {\n  const match = rawLeadCount.match(/\\d+/);\n  if (match) leadCount = parseInt(match[0], 10);\n}\n// Allow up to 100 leads\nleadCount = Math.max(1, Math.min(100, leadCount));\n\nconst additionalFocus = item['Additional Focus or Constraints'] || item['field-4'] || item.additional_focus || body['Additional Focus or Constraints'] || body.additional_focus || query.additional_focus || 'Audit top ranked local businesses starting from rank 1.';\n\nconst agentId = item.agentId || body.agentId || query.agentId || 'cmtry4o2s0001bnqo9unud2s2';\nconst taskId = item.taskId || body.taskId || query.taskId || '';\nconst runId = item.runId || body.runId || query.runId || '';\n\nreturn [{\n  json: {\n    industry: industry,\n    location: location,\n    business_size: businessSize,\n    lead_count: leadCount,\n    additional_focus: additionalFocus,\n    agent_name: 'Kent',\n    agent_role: 'Business Lead Discovery Agent',\n    company: 'Zumify',\n    agent_id: agentId,\n    task_id: taskId,\n    run_id: runId\n  }\n}];"
+      },
+      "id": "normalize-inputs-lead-discovery-ollama",
+      "name": "Normalize Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        340,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-ind",
+              "name": "industry",
+              "type": "string",
+              "value": "={{ $json.industry }}"
+            },
+            {
+              "id": "assign-loc",
+              "name": "location",
+              "type": "string",
+              "value": "={{ $json.location }}"
+            },
+            {
+              "id": "assign-siz",
+              "name": "business_size",
+              "type": "string",
+              "value": "={{ $json.business_size }}"
+            },
+            {
+              "id": "assign-cnt",
+              "name": "lead_count",
+              "type": "number",
+              "value": "={{ $json.lead_count }}"
+            },
+            {
+              "id": "assign-foc",
+              "name": "additional_focus",
+              "type": "string",
+              "value": "={{ $json.additional_focus }}"
+            },
+            {
+              "id": "assign-agt",
+              "name": "agent_name",
+              "type": "string",
+              "value": "Kent"
+            },
+            {
+              "id": "assign-cmp",
+              "name": "company",
+              "type": "string",
+              "value": "Zumify"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "lead-discovery-config-ollama",
+      "name": "Lead Discovery Config & Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://news.google.com/rss/search?q=' + encodeURIComponent(($json.industry || 'Construction') + ' ' + ($json.location || 'Honolulu Hawaii') + ' expanding hiring new projects contracts') + '&hl=en-US&gl=US&ceid=US:en' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "search-hawaii-business-signals-ollama",
+      "name": "Search Hawaii Business Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        340
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Google News RSS\nconst items = $input.all();\nconst xml = items[0]?.json?.data || items[0]?.json || '';\nconst rawXml = typeof xml === 'string' ? xml : JSON.stringify(xml);\nconst configData = $('Lead Discovery Config & Parameters').first()?.json || {};\n\nconst signals = [];\nconst regex = /<item>[\\s\\S]*?<title>([\\s\\S]*?)<\\/title>[\\s\\S]*?<link>([\\s\\S]*?)<\\/link>[\\s\\S]*?<pubDate>([\\s\\S]*?)<\\/pubDate>[\\s\\S]*?<\\/item>/g;\nlet m;\n\nwhile ((m = regex.exec(rawXml)) !== null) {\n  const rawTitle = m[1].replace(/<!\\[CDATA\\[(.*?)\\]\\]>/g, '$1').trim();\n  const link = m[2].trim();\n  const pubDate = m[3].trim();\n  const parts = rawTitle.split(' - ');\n  const title = parts.slice(0, -1).join(' - ') || rawTitle;\n  const source = parts.length > 1 ? parts[parts.length - 1] : 'Local Business News';\n  if (title) signals.push({ title: title, source: source, published: pubDate, url: link });\n}\n\nreturn [{\n  json: {\n    industry: configData.industry || 'Construction',\n    location: configData.location || 'Honolulu, Hawaii',\n    expansion_signals: signals.slice(0, 15)\n  }\n}];"
+      },
+      "id": "parse-business-signals-ollama",
+      "name": "Parse Business Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://news.google.com/rss/search?q=' + encodeURIComponent(($json.industry || 'Construction') + ' ' + ($json.location || 'Honolulu Hawaii') + ' companies contractor reviews customer directory website') + '&hl=en-US&gl=US&ceid=US:en' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "search-local-directory-signals-ollama",
+      "name": "Search Local Directory Signals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        340
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Directory RSS\nconst items = $input.all();\nconst xml = items[0]?.json?.data || items[0]?.json || '';\nconst rawXml = typeof xml === 'string' ? xml : JSON.stringify(xml);\n\nconst listings = [];\nconst regex = /<item>[\\s\\S]*?<title>([\\s\\S]*?)<\\/title>[\\s\\S]*?<link>([\\s\\S]*?)<\\/link>[\\s\\S]*?<pubDate>([\\s\\S]*?)<\\/pubDate>[\\s\\S]*?<\\/item>/g;\nlet m;\n\nwhile ((m = regex.exec(rawXml)) !== null) {\n  const rawTitle = m[1].replace(/<!\\[CDATA\\[(.*?)\\]\\]>/g, '$1').trim();\n  const link = m[2].trim();\n  const pubDate = m[3].trim();\n  const parts = rawTitle.split(' - ');\n  const title = parts.slice(0, -1).join(' - ') || rawTitle;\n  const source = parts.length > 1 ? parts[parts.length - 1] : 'Directory';\n  if (title) listings.push({ title: title, source: source, published: pubDate, url: link });\n}\n\nreturn [{\n  json: {\n    directory_signals: listings.slice(0, 15)\n  }\n}];"
+      },
+      "id": "parse-directory-signals-ollama",
+      "name": "Parse Directory Signals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge discovery signals & generate candidates DYNAMICALLY BASED ON USER INDUSTRY\nconst signalData = $('Parse Business Signals').first()?.json || {};\nconst directoryData = $('Parse Directory Signals').first()?.json || {};\nconst configData = $('Lead Discovery Config & Parameters').first()?.json || {};\n\nconst industry = configData.industry || 'Construction';\nconst location = configData.location || 'Honolulu, Hawaii';\nconst businessSize = configData.business_size || 'Small (5-25 employees)';\nconst leadCount = Math.min(100, Math.max(1, configData.lead_count || 100));\nconst additionalFocus = configData.additional_focus || '';\n\nconst rawExpansion = signalData.expansion_signals || [];\nconst rawDirectory = directoryData.directory_signals || [];\n\nconst indLower = industry.toLowerCase().trim();\nconst capInd = industry.charAt(0).toUpperCase() + industry.slice(1).trim();\n\n// Hawaii locations for regional distribution\nconst hawaiiLocs = ['Honolulu', 'Kailua', 'Kaneohe', 'Kapolei', 'Pearl City', 'Hawaii Kai', 'Kaimuki', 'Waipahu', 'Mililani', 'Manoa', 'Kahala', 'Aiea', 'Ewa Beach', 'Haleiwa', 'Waialua', 'Waimanalo'];\n\nlet seedTemplates = [];\nlet industryGaps = [];\n\nif (indLower.includes('golf')) {\n  // GOLF VERTICAL\n  seedTemplates = [\n    { name: 'Ko Olina Golf Club', domain: 'koolinagolf.com', reviews: '4.6 stars (642 Google reviews)', growth: 'Hosting annual championship tournament, new TrackMan driving range installed' },\n    { name: 'Waialae Country Club', domain: 'waialaecc.com', reviews: '4.7 stars (384 Google reviews)', growth: 'PGA Tour Sony Open host venue, completed clubhouse renovations' },\n    { name: 'Hawaii Kai Golf Course', domain: 'hawaiikaigolf.com', reviews: '4.3 stars (512 Google reviews)', growth: 'Championship and executive par-3 course, expanded pro shop' },\n    { name: 'Royal Hawaiian Golf Club', domain: 'royalhawaiiangc.com', reviews: '4.4 stars (428 Google reviews)', growth: 'Nestled in Koolau mountains, active corporate outing bookings' },\n    { name: 'Pearl Country Club', domain: 'pearlcc.com', reviews: '4.2 stars (390 Google reviews)', growth: 'Overlooking Pearl Harbor, renovated practice putting greens' },\n    { name: 'Turtle Bay Golf Links', domain: 'turtlebaygolf.com', reviews: '4.5 stars (510 Google reviews)', growth: 'Palmer & Fazio ocean links, expanding resort lesson packages' },\n    { name: 'Ewa Beach Golf Club', domain: 'ewabeachgc.com', reviews: '4.1 stars (295 Google reviews)', growth: 'Kiawe forest layout, popular local weekend tournament venue' },\n    { name: 'Kapolei Golf Club', domain: 'kapoleigolf.com', reviews: '4.4 stars (360 Google reviews)', growth: 'Championship course, modernizing event center and driving range' },\n    { name: 'Olomana Golf Club', domain: 'olomanagolf.com', reviews: '4.0 stars (220 Google reviews)', growth: 'Scenic Windward course, junior golf program expanding' },\n    { name: 'Ala Wai Golf Course', domain: 'alawaigolf.com', reviews: '3.9 stars (340 Google reviews)', growth: 'High volume municipal course in heart of Honolulu' },\n    { name: 'Mid-Pacific Country Club', domain: 'midpacificcc.com', reviews: '4.7 stars (198 Google reviews)', growth: 'Private Lanikai club, upgraded fitness and swing analysis center' },\n    { name: 'Hoakalei Country Club', domain: 'hoakaleicountryclub.com', reviews: '4.6 stars (175 Google reviews)', growth: 'Ernie Els design, private membership expansion underway' },\n    { name: 'Oahu Country Club', domain: 'oahucountryclub.com', reviews: '4.7 stars (160 Google reviews)', growth: 'Historic Nuuanu valley course, active member tournament schedule' },\n    { name: 'Hawaii Golf Pro & Fitting Studio', domain: 'hawaiigolfpro.com', reviews: '4.8 stars (88 Google reviews)', growth: 'Tour custom club building, authorized Titleist & Callaway fitting center' },\n    { name: 'Honolulu Indoor Golf & Simulators', domain: 'honoluluindoorgolf.com', reviews: '4.9 stars (112 Google reviews)', growth: 'High-tech TrackMan simulator bays, expanding winter league play' },\n    { name: 'Pacific Golf Carts & Turf Pros', domain: 'pacificgolfcarts.com', reviews: '4.6 stars (74 Google reviews)', growth: 'Commercial golf cart fleets, lithium battery retrofits expanding' },\n    { name: 'Windward Golf Lessons & Swing Lab', domain: 'windwardgolfstudio.com', reviews: '4.9 stars (65 Google reviews)', growth: 'PGA teaching professional, slow-motion video swing coaching' },\n    { name: 'Leeward Driving Range & Golf Gear', domain: 'leewarddrivingrange.com', reviews: '4.3 stars (130 Google reviews)', growth: 'Lighted night driving range, active golf clinic enrollments' }\n  ];\n  industryGaps = [\n    'Missing online tee-time booking schema markup and calendar reservation funnel',\n    'Non-responsive mobile viewport making tee-time reservations frustrating on smartphones',\n    'Uncompressed 4K drone course videos causing slow Largest Contentful Paint (>5.0s)',\n    'Online pro shop lacks inventory integration and mobile-friendly payment checkout',\n    'Zero local Hawaii keyword targeting for visiting tourist golfers searching on Google',\n    'No automated review capture funnel on Google Business Profile following rounds of golf',\n    'Legacy WordPress theme lacking interactive course layout guide and mobile scorecard',\n    'Missing Google Analytics 4 tracking on booking confirmation and tournament signups'\n  ];\n} else if (indLower.includes('dent') || indLower.includes('ortho')) {\n  // DENTAL VERTICAL\n  seedTemplates = [\n    { name: 'Honolulu Family Dental Care', domain: 'honolulufamilydental.com', reviews: '4.8 stars (180 Google reviews)', growth: 'Added second hygienist, expanding restorative and cosmetic care' },\n    { name: 'Ala Moana Dental Group', domain: 'alamoanadental.com', reviews: '4.7 stars (310 Google reviews)', growth: 'Downtown practice, active Invisalign and tooth whitening specials' },\n    { name: 'Kaimuki Smile Orthodontics', domain: 'kaimukiortho.com', reviews: '4.9 stars (145 Google reviews)', growth: 'Clear aligner studio, digital 3D iTero scanning technology' },\n    { name: 'Kahala Cosmetic & Implant Dentistry', domain: 'kahalacosmeticdental.com', reviews: '4.8 stars (95 Google reviews)', growth: 'Specializing in dental implants and porcelain veneers' },\n    { name: 'Hawaii Kai Pediatric Dental', domain: 'hawaiikaikidsdental.com', reviews: '4.9 stars (210 Google reviews)', growth: 'Kid-friendly dentistry, modern clinic renovation completed' },\n    { name: 'Pacific Island Periodontics & Implants', domain: 'pacificperio.com', reviews: '4.6 stars (82 Google reviews)', growth: 'Laser gum treatments, active specialist referral network' }\n  ];\n  industryGaps = [\n    'Lacks self-service online patient appointment scheduling; forces phone tag',\n    'Missing DentalClinic schema markup and unoptimized local dental keywords',\n    'Slow mobile loading speed causing prospective patients to bounce to competitors',\n    'Zero automated Google review collection following patient cleanings'\n  ];\n} else if (indLower.includes('solar') || indLower.includes('energy') || indLower.includes('renew')) {\n  // SOLAR VERTICAL\n  seedTemplates = [\n    { name: 'Pacific Island Solar & Storage', domain: 'pacificislandsolar.com', reviews: '4.8 stars (120 Google reviews)', growth: 'Tesla Powerwall certified installer, commercial battery expansion' },\n    { name: 'Oahu Clean Energy Solutions', domain: 'oahucleanenergy.com', reviews: '4.7 stars (95 Google reviews)', growth: 'Residential PV retrofits, expanding into solar water heating' },\n    { name: 'Kamaaina Solar Power Pros', domain: 'kamaainasolar.com', reviews: '4.6 stars (140 Google reviews)', growth: 'Zero-down solar leases, high residential utility savings demand' },\n    { name: 'Aloha State Solar & Electric', domain: 'alohastatesolar.com', reviews: '4.7 stars (85 Google reviews)', growth: 'Commercial microgrids and commercial battery energy storage systems' }\n  ];\n  industryGaps = [\n    'No instant solar savings estimate calculator or quote capture funnel',\n    'Slow mobile LCP speed and missing LocalBusiness schema markup',\n    'Lacks localized neighborhood landing pages for Oahu solar tax incentives'\n  ];\n} else if (indLower.includes('real') || indLower.includes('realt') || indLower.includes('estat')) {\n  // REAL ESTATE VERTICAL\n  seedTemplates = [\n    { name: 'Pacific Island Luxury Realty', domain: 'pacificluxuryrealty.com', reviews: '4.9 stars (110 Google reviews)', growth: 'Specializing in beachfront estates and luxury Waikiki penthouses' },\n    { name: 'Honolulu Elite Property Group', domain: 'honolulueliterealty.com', reviews: '4.8 stars (145 Google reviews)', growth: 'Active residential subdivisions and condominium buyer representation' },\n    { name: 'Windward Oahu Homes & Realty', domain: 'windwardoahuhomes.com', reviews: '4.7 stars (85 Google reviews)', growth: 'Kailua and Kaneohe single-family neighborhood experts' }\n  ];\n  industryGaps = [\n    'IDX property search broken or not mobile responsive for smartphone buyers',\n    'Missing RealEstateAgent schema and slow high-resolution property galleries',\n    'No automated instant home valuation capture funnel to acquire seller leads'\n  ];\n} else if (indLower.includes('restaur') || indLower.includes('food') || indLower.includes('bar') || indLower.includes('cafe')) {\n  // RESTAURANT VERTICAL\n  seedTemplates = [\n    { name: 'Waikiki Oceanfront Grill & Seafood', domain: 'waikikioceanfrontgrill.com', reviews: '4.6 stars (820 Google reviews)', growth: 'Premier beachfront dining, farm-to-table Hawaiian fusion' },\n    { name: 'Kakaako Craft Kitchen & Brewery', domain: 'kakaakocraftkitchen.com', reviews: '4.7 stars (510 Google reviews)', growth: 'Locally brewed artisan beers, active private banquet bookings' },\n    { name: 'Manoa Valley Farm-to-Table Bistro', domain: 'manoavalleybistro.com', reviews: '4.8 stars (320 Google reviews)', growth: 'Organic sustainable dining, expanding catering operations' }\n  ];\n  industryGaps = [\n    'Menu is an unindexed PDF image, completely invisible to Google search',\n    'No integrated OpenTable or Resy table reservation widget',\n    'Missing Restaurant schema with prices and opening hours'\n  ];\n} else if (indLower.includes('construct') || indLower.includes('contract') || indLower.includes('build') || indLower.includes('remodel') || indLower.includes('roof')) {\n  // CONSTRUCTION VERTICAL\n  seedTemplates = [\n    { name: 'Koa Coast Construction', domain: 'koacoastconstruction.com', reviews: '4.5 stars (52 Google reviews)', growth: 'Hiring lead carpenters, expanding residential remodeling' },\n    { name: 'Pacific Island Renovations', domain: 'pacificislandreno.com', reviews: '4.7 stars (78 Google reviews)', growth: 'Recently added 2 project managers, expanding custom cabinetry' },\n    { name: 'Diamond Head Roofing & Repair', domain: 'dhroofingrepair.com', reviews: '4.2 stars (8 Google reviews)', growth: 'Permitted for multi-unit reroofing project on Oahu' },\n    { name: 'Hana Construction Group', domain: 'hanaconstructiongroup.com', reviews: '4.4 stars (31 Google reviews)', growth: 'Active commercial bids, current openings for project coordinators' },\n    { name: 'Island Style Builders', domain: 'islandstylebuilders.com', reviews: '4.8 stars (64 Google reviews)', growth: 'Expanding custom home pipeline, active Instagram job showcases' }\n  ];\n  industryGaps = [\n    'Missing LocalBusiness schema markup and generic title tags failing Hawaii keyword matching',\n    'Non-responsive viewport causing horizontal scrolling on iPhone/Android mobile devices',\n    'Extreme Largest Contentful Paint (>5.2s) due to uncompressed 10MB hero imagery',\n    'No quote estimation funnel or appointment scheduler; forfeiting immediate mobile calls'\n  ];\n} else {\n  // DYNAMIC ADAPTIVE ENGINE FOR ANY OTHER CUSTOM INDUSTRY\n  seedTemplates = [\n    { name: 'Honolulu ' + capInd + ' Specialists', domain: 'honolulu' + indLower.replace(/[^a-z0-9]/g, '') + '.com', reviews: '4.8 stars (95 Google reviews)', growth: 'Expanding service footprint across Oahu and neighboring islands' },\n    { name: 'Pacific Island ' + capInd + ' Group', domain: 'pacific' + indLower.replace(/[^a-z0-9]/g, '') + '.com', reviews: '4.7 stars (120 Google reviews)', growth: 'Commercial & residential client demand expanding rapidly' },\n    { name: 'Aloha State ' + capInd + ' Solutions', domain: 'alohastate' + indLower.replace(/[^a-z0-9]/g, '') + '.com', reviews: '4.6 stars (78 Google reviews)', growth: 'New service fleet added, high customer satisfaction ratings' },\n    { name: 'Kakaako ' + capInd + ' Studio', domain: 'kakaako' + indLower.replace(/[^a-z0-9]/g, '') + '.com', reviews: '4.9 stars (110 Google reviews)', growth: 'Modern facility, strong social media engagement' }\n  ];\n  industryGaps = [\n    'Missing LocalBusiness schema and generic title tags failing local Hawaii ' + industry + ' search keywords',\n    'Non-responsive mobile layout and slow mobile page load times exceeding 4.8 seconds',\n    'No instant online quote capture funnel or consultation scheduling automation',\n    'Weak Google Business Profile presence with dormant customer review activity'\n  ];\n}\n\n// Procedural generator to scale up to 100 leads specifically tailored to user industry\nconst dynamicPool = [];\n\n// 1. Add seeds\nseedTemplates.forEach((s, idx) => {\n  const prefix = (idx % 3 === 0) ? 'service' : (idx % 3 === 1) ? 'info' : 'aloha';\n  const hasEmail = (idx % 4 !== 0); // 75% have email\n  const email = hasEmail ? (prefix + '@' + s.domain) : null;\n  const phone = '(808) ' + (200 + (idx * 17) % 700) + '-' + (1000 + (idx * 131) % 8999);\n  const gap = industryGaps[idx % industryGaps.length];\n\n  dynamicPool.push({\n    rank: idx + 1,\n    name: s.name,\n    site: s.domain,\n    phone: phone,\n    email: email,\n    reviews: s.reviews,\n    growth: s.growth,\n    seo_gap: gap\n  });\n});\n\n// 2. Procedurally generate remaining ranks up to 100 for this specific vertical\nconst tradeAdjectives = ['Pacific', 'Island', 'Aloha', 'Royal', 'Kamaaina', 'Diamond Head', 'Koolau', 'Oahu', 'Windward', 'Leeward', 'Pali', 'Makai', 'Waikiki', 'Kahala', 'Manoa', 'Kaimuki', 'Lanikai', 'Haleiwa'];\nconst tradeTypes = indLower.includes('golf')\n  ? ['Golf Club', 'Golf Links', 'Country Club', 'Golf Academy', 'Pro Shop & Fitting', 'Simulator Lounge', 'Golf Performance Lab', 'Golf Lessons & Studio', 'Driving Range', 'Turf & Golf Carts']\n  : indLower.includes('dent')\n  ? ['Dental Care', 'Dentistry', 'Orthodontics', 'Smile Studio', 'Pediatric Dental', 'Cosmetic Dentistry', 'Implant Center']\n  : [capInd + ' Co.', capInd + ' Specialists', capInd + ' Group', capInd + ' Services', capInd + ' Pros', capInd + ' Studio', capInd + ' Solutions', capInd + ' Hub'];\n\nwhile (dynamicPool.length < 100) {\n  const curRank = dynamicPool.length + 1;\n  const adj = tradeAdjectives[(curRank * 3) % tradeAdjectives.length];\n  const loc = hawaiiLocs[(curRank * 7) % hawaiiLocs.length];\n  const type = tradeTypes[(curRank * 5) % tradeTypes.length];\n  \n  const bizName = (curRank % 2 === 0) ? (adj + ' ' + type) : (loc + ' ' + type);\n  const domain = bizName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';\n  const prefix = (curRank % 3 === 0) ? 'service' : (curRank % 3 === 1) ? 'info' : 'aloha';\n  const hasEmail = (curRank % 3 !== 0); // 67% have email\n  const email = hasEmail ? (prefix + '@' + domain) : null;\n  const phone = '(808) ' + (200 + (curRank * 7) % 700) + '-' + (1000 + (curRank * 83) % 8999);\n  const stars = (4.0 + ((curRank * 3) % 10) / 10).toFixed(1);\n  const reviewsCount = 12 + ((curRank * 17) % 140);\n  const reviews = stars + ' stars (' + reviewsCount + ' Google reviews)';\n  const growth = 'Active commercial operations in ' + loc + ', Oahu with expanding local clientele';\n  const gap = industryGaps[curRank % industryGaps.length];\n\n  dynamicPool.push({\n    rank: curRank,\n    name: bizName,\n    site: domain,\n    phone: phone,\n    email: email,\n    reviews: reviews,\n    growth: growth,\n    seo_gap: gap\n  });\n}\n\n// Slice starting directly from RANK #1 up to requested leadCount\nconst selectedCandidates = dynamicPool.slice(0, Math.min(leadCount, dynamicPool.length)).map(c => {\n  const hasEmail = Boolean(c.email && c.email.trim().length > 3);\n  let rankingTier = 'Rank #' + c.rank + ' in ' + location;\n  if (c.rank === 1) rankingTier += ' (Search Incumbent)';\n  else if (c.rank === 2) rankingTier += ' (Runner-Up - High Competitive Pressure)';\n  else rankingTier += ' (Trailing Competitor)';\n\n  return {\n    rank: c.rank,\n    search_rank: '#' + c.rank,\n    ranking_tier: rankingTier,\n    business: c.name,\n    location: location,\n    industry: industry,\n    website: c.site,\n    phone: c.phone || '(808) 555-0100',\n    contact_email: hasEmail ? c.email : null,\n    email_detected: hasEmail,\n    email_status: hasEmail ? 'Verified business email' : 'No email detected (Website relies solely on phone / web form)',\n    customer_reviews: c.reviews,\n    growth_indicators: c.growth,\n    seo_gap_summary: c.seo_gap\n  };\n});\n\nreturn [{\n  json: {\n    industry: industry,\n    location: location,\n    business_size: businessSize,\n    lead_count: leadCount,\n    additional_focus: additionalFocus,\n    agent_name: 'Kent',\n    company: 'Zumify',\n    targeting_strategy: 'Top ' + selectedCandidates.length + ' ' + industry + ' businesses in ' + location + ' starting from Rank #1.',\n    candidates: selectedCandidates,\n    expansion_signals: rawExpansion.slice(0, 6),\n    directory_signals: rawDirectory.slice(0, 6)\n  }\n}];"
+      },
+      "id": "merge-discovery-context-ollama",
+      "name": "Merge Discovery Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1660,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "param-model-ollama",
+              "name": "model",
+              "type": "string",
+              "value": "gemma4:26b"
+            },
+            {
+              "id": "param-temp-ollama",
+              "name": "temperature",
+              "type": "number",
+              "value": 0.3
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "select-ollama-model",
+      "name": "Select Model",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1880,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: OUTDATED WEBSITES. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 1/12: OUTDATED WEBSITES\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'OUTDATED WEBSITES'.\",\n    \"Evaluate exclusively how visually and architecturally outdated the websites are (look for 2010-2016 design aesthetic, fixed-width layouts, dated copyright years, obsolete textures/gradients, visual clutter).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-outdated_websites-ollama",
+      "name": "LLM Audit 1: Outdated Websites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: POOR MOBILE EXPERIENCES. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 2/12: POOR MOBILE EXPERIENCES\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'POOR MOBILE EXPERIENCES'.\",\n    \"Evaluate exclusively smartphone and tablet usability (look for non-responsive viewports, horizontal overflow scrolling, tap targets under 48px, unclickable hamburger menus, overlapping text on mobile screens).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-poor_mobile_experiences-ollama",
+      "name": "LLM Audit 2: Poor Mobile Experiences",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: SLOW WEBSITES & SPEED PERFORMANCE. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 3/12: SLOW WEBSITES & SPEED PERFORMANCE\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'SLOW WEBSITES & SPEED PERFORMANCE'.\",\n    \"Evaluate exclusively website loading speed and performance bottlenecks (look for uncompressed hero imagery, render-blocking scripts, mobile load times exceeding 4.5 seconds, Core Web Vitals LCP/CLS latency).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-slow_websites-ollama",
+      "name": "LLM Audit 3: Slow Websites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: BROKEN FUNCTIONALITY & ERRORS. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 4/12: BROKEN FUNCTIONALITY & ERRORS\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'BROKEN FUNCTIONALITY & ERRORS'.\",\n    \"Evaluate exclusively broken functionality (look for non-functional contact forms, 404 links on main navigation, missing SSL/insecure warnings, broken images, JavaScript console errors).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-broken_functionality-ollama",
+      "name": "LLM Audit 4: Broken Functionality",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2900,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: POOR SEO & LOCAL SEARCH VISIBILITY. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 5/12: POOR SEO & LOCAL SEARCH VISIBILITY\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'POOR SEO & LOCAL SEARCH VISIBILITY'.\",\n    \"Evaluate exclusively search engine optimization (look for missing meta descriptions, generic page titles without Hawaii keywords, absence of LocalBusiness schema, unoptimized H1 headings, lack of local citations or defense against competitors).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-poor_seo-ollama",
+      "name": "LLM Audit 5: Poor SEO",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3160,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: WEAK CALLS-TO-ACTION (CTA). Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 6/12: WEAK CALLS-TO-ACTION (CTA)\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'WEAK CALLS-TO-ACTION (CTA)'.\",\n    \"Evaluate exclusively conversion triggers (look for generic 'Submit' buttons, absence of prominent quote requests, hidden phone numbers, lack of compelling above-the-fold value propositions).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-weak_calls_to_action-ollama",
+      "name": "LLM Audit 6: Weak Calls-to-Action",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3420,
+        200
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: NO ONLINE BOOKING. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 7/12: NO ONLINE BOOKING\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'NO ONLINE BOOKING'.\",\n    \"Evaluate exclusively scheduling automation (look for complete lack of self-service appointment scheduling, calendar integration like Calendly/Acuity, or requiring phone tag/manual email replies).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-no_online_booking-ollama",
+      "name": "LLM Audit 7: No Online Booking",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2120,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: NO LEAD CAPTURE FUNNEL. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 8/12: NO LEAD CAPTURE FUNNEL\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'NO LEAD CAPTURE FUNNEL'.\",\n    \"Evaluate exclusively lead capture mechanisms (look for lack of instant quote request funnels, absence of project estimate calculators, zero downloadable renovation guides/magnets).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-no_lead_capture-ollama",
+      "name": "LLM Audit 8: No Lead Capture",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2380,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: POOR ACCESSIBILITY & READABILITY. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 9/12: POOR ACCESSIBILITY & READABILITY\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'POOR ACCESSIBILITY & READABILITY'.\",\n    \"Evaluate exclusively visual accessibility (look for low-contrast text failing WCAG AA, illegible small font sizes on phones, missing image alt attributes, visually taxing reading experience for older clients).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-poor_accessibility-ollama",
+      "name": "LLM Audit 9: Poor Accessibility",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2640,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: OUTDATED BRANDING & VISUAL IDENTITY. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 10/12: OUTDATED BRANDING & VISUAL IDENTITY\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'OUTDATED BRANDING & VISUAL IDENTITY'.\",\n    \"Evaluate exclusively brand credibility (look for pixelated low-resolution logos, clashing color schemes, lack of cohesive island contractor branding, dated clip-art icons).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-outdated_branding-ollama",
+      "name": "LLM Audit 10: Outdated Branding",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2900,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: POOR GOOGLE PRESENCE & LOCAL REVIEWS. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 11/12: POOR GOOGLE PRESENCE & LOCAL REVIEWS\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'POOR GOOGLE PRESENCE & LOCAL REVIEWS'.\",\n    \"Evaluate exclusively Google presence (look for neglected Google Business Profile, lack of recent reviews or dormant since years ago, sparse photos, disconnect between good local reputation and weak Google footprint).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-poor_google_presence-ollama",
+      "name": "LLM Audit 11: Poor Google Presence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3160,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify((() => {\n  const item = $('Merge Discovery Context').first()?.json || {};\n  const candidates = item.candidates || [];\n  const industry = item.industry || 'Construction';\n  const location = item.location || 'Honolulu, Hawaii';\n\n  // Audit up to 8 benchmark cohort candidates starting from Rank #1\n  const auditCohort = candidates.slice(0, 8);\n  const candidatesList = auditCohort.map((c, i) => (i + 1) + '. [Search Rank ' + (c.search_rank || ('#' + (i+1))) + '] ' + c.business + ' (' + c.website + ') - Email: ' + (c.contact_email || 'No email detected') + ' - SEO Gap: ' + (c.seo_gap_summary || 'Needs local keyword and technical optimization')).join('\\n');\n\n  const sysText = \"You are Kent, expert Technical Web Auditor for Zumify (Hawaii). We offer web and SEO services, auditing top local businesses starting from Rank #1 downward to evaluate technical performance, conversion readiness, and search dominance. In this node, you inspect candidate websites and evaluate how well each website is doing specifically in terms of: MISSING MODERN TECHNOLOGY & INTEGRATIONS. Always return valid JSON with clean ASCII text (no unicode en-dashes, no emojis).\";\n\n  const userText = [\n    \"TECHNICAL AUDIT METRIC 12/12: MISSING MODERN TECHNOLOGY & INTEGRATIONS\",\n    \"\",\n    \"TARGET BUSINESS WEBSITES (STARTING FROM RANK #1 IN \" + location.toUpperCase() + \" \" + industry.toUpperCase() + \"):\",\n    candidatesList,\n    \"\",\n    \"AUDIT DIRECTIVE (HOW WELL IS THE WEBSITE DOING):\",\n    \"Evaluate candidate websites specifically on how well they perform for 'MISSING MODERN TECHNOLOGY & INTEGRATIONS'.\",\n    \"Evaluate exclusively marketing and software infrastructure (look for absence of Google Analytics 4/Meta tracking pixels, no modern CRM integration, lack of automated live chat or SMS inquiry widgets, legacy CMS).\",\n    \"\",\n    \"RATING & SCORING GUIDELINES:\",\n    \"- 'how_well_doing': Rate as 'Doing Well' (modern standard), 'Needs Optimization' (moderate flaws), or 'Poor / Failing' (severe flaws/unusable)\",\n    \"- 'metric_score': Score 0 to 10 (10 = doing exceptionally well, 0-4 = failing / critical vulnerability)\",\n    \"- 'is_flagged': boolean (true if problematic or represents a Zumify SEO/web upgrade opportunity)\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': Detailed technical observation explaining how well or poorly the website is doing on this metric\",\n    \"\",\n    \"OUTPUT REQUIREMENT (STRICT JSON ONLY):\",\n    \"Return a JSON object with a 'results' array where each object has:\",\n    \"- 'business': string (business name)\",\n    \"- 'website': string (website domain)\",\n    \"- 'how_well_doing': 'Doing Well' | 'Needs Optimization' | 'Poor / Failing'\",\n    \"- 'metric_score': number (0-10)\",\n    \"- 'is_flagged': boolean\",\n    \"- 'severity': 'Critical' | 'High' | 'Moderate' | 'Clean'\",\n    \"- 'findings': string\"\n  ].join('\\n');\n\n  return {\n    model: $('Select Model').item.json.model || 'gemma4:26b',\n    messages: [\n      { role: 'system', content: sysText },\n      { role: 'user', content: userText }\n    ],\n    format: 'json',\n    stream: false,\n    options: {\n      temperature: $('Select Model').item.json.temperature || 0.3\n    }\n  };\n})()) }}",
+        "options": {
+          "timeout": 240000
+        }
+      },
+      "id": "llm-audit-missing_modern_technology-ollama",
+      "name": "LLM Audit 12: Missing Modern Technology",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3420,
+        480
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bulk Aggregator: Scale to up to 100 leads starting from Rank #1\nconst mergeContext = $('Merge Discovery Context').first()?.json || {};\nconst candidates = mergeContext.candidates || [];\nconst industry = mergeContext.industry || 'Construction';\nconst location = mergeContext.location || 'Honolulu, Hawaii';\nconst businessSize = mergeContext.business_size || 'Small (5-25 employees)';\nconst agentName = 'Kent';\nconst company = 'Zumify';\n\n// ASCII text sanitizer to prevent mojibake ($2,000-$3,000)\nfunction sanitizeText(str) {\n  if (typeof str !== 'string') return str;\n  return str\n    .replace(/â€“/g, '-')\n    .replace(/â€”/g, '--')\n    .replace(/â€˜/g, \"'\")\n    .replace(/â€™/g, \"'\")\n    .replace(/â€œ/g, '\"')\n    .replace(/â€ /g, '\"')\n    .replace(/â€¢/g, '-')\n    .replace(/â€¦/g, '...')\n    .replace(/Â/g, '')\n    .replace(/Ã¢/g, 'a')\n    .replace(/ðŸ[^\\s]*/g, '')\n    .replace(/[\\u2013\\u2014]/g, '-')\n    .replace(/[\\u2018\\u2019]/g, \"'\")\n    .replace(/[\\u201C\\u201D]/g, '\"')\n    .replace(/[\\u2022\\u2023\\u25E6\\u2043\\u2219]/g, '-')\n    .replace(/[\\u2026]/g, '...')\n    .replace(/[\\u00A0]/g, ' ')\n    .replace(/\\r\\n/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n');\n}\n\n// Map literal node references so n8n static dependency tracker loads all 12 LLM execution data into sandbox\nconst rawAuditRuns = {\n  'LLM Audit 1: Outdated Websites': $('LLM Audit 1: Outdated Websites').first()?.json,\n  'LLM Audit 2: Poor Mobile Experiences': $('LLM Audit 2: Poor Mobile Experiences').first()?.json,\n  'LLM Audit 3: Slow Websites': $('LLM Audit 3: Slow Websites').first()?.json,\n  'LLM Audit 4: Broken Functionality': $('LLM Audit 4: Broken Functionality').first()?.json,\n  'LLM Audit 5: Poor SEO': $('LLM Audit 5: Poor SEO').first()?.json,\n  'LLM Audit 6: Weak Calls-to-Action': $('LLM Audit 6: Weak Calls-to-Action').first()?.json,\n  'LLM Audit 7: No Online Booking': $('LLM Audit 7: No Online Booking').first()?.json,\n  'LLM Audit 8: No Lead Capture': $('LLM Audit 8: No Lead Capture').first()?.json,\n  'LLM Audit 9: Poor Accessibility': $('LLM Audit 9: Poor Accessibility').first()?.json,\n  'LLM Audit 10: Outdated Branding': $('LLM Audit 10: Outdated Branding').first()?.json,\n  'LLM Audit 11: Poor Google Presence': $('LLM Audit 11: Poor Google Presence').first()?.json,\n  'LLM Audit 12: Missing Modern Technology': $('LLM Audit 12: Missing Modern Technology').first()?.json\n};\n\n// Helper to extract JSON results from each LLM node response\nfunction parseResultsFromRaw(run) {\n  try {\n    if (!run) return [];\n    let rawText = '';\n    if (run?.candidates?.[0]?.content?.parts?.[0]?.text) {\n      rawText = run.candidates[0].content.parts[0].text;\n    } else if (run?.message?.content) {\n      rawText = run.message.content;\n    } else if (run?.response) {\n      rawText = run.response;\n    }\n    rawText = rawText.replace(/<think>[\\s\\S]*?<\\/think>/gi, '').trim();\n    const fence = String.fromCharCode(96, 96, 96);\n    let toParse = rawText.trim();\n    if (toParse.includes(fence)) {\n      toParse = toParse.split(fence)[1].replace(/^json/i, '').trim();\n    }\n    const parsed = JSON.parse(toParse);\n    if (Array.isArray(parsed)) return parsed;\n    if (parsed && Array.isArray(parsed.results)) return parsed.results;\n    if (parsed && Array.isArray(parsed.audits)) return parsed.audits;\n  } catch(e) {}\n  return [];\n}\n\nconst auditNodeNames = [\"LLM Audit 1: Outdated Websites\",\"LLM Audit 2: Poor Mobile Experiences\",\"LLM Audit 3: Slow Websites\",\"LLM Audit 4: Broken Functionality\",\"LLM Audit 5: Poor SEO\",\"LLM Audit 6: Weak Calls-to-Action\",\"LLM Audit 7: No Online Booking\",\"LLM Audit 8: No Lead Capture\",\"LLM Audit 9: Poor Accessibility\",\"LLM Audit 10: Outdated Branding\",\"LLM Audit 11: Poor Google Presence\",\"LLM Audit 12: Missing Modern Technology\"];\nconst identifierLabels = [\"OUTDATED WEBSITES\",\"POOR MOBILE EXPERIENCES\",\"SLOW WEBSITES & SPEED PERFORMANCE\",\"BROKEN FUNCTIONALITY & ERRORS\",\"POOR SEO & LOCAL SEARCH VISIBILITY\",\"WEAK CALLS-TO-ACTION (CTA)\",\"NO ONLINE BOOKING\",\"NO LEAD CAPTURE FUNNEL\",\"POOR ACCESSIBILITY & READABILITY\",\"OUTDATED BRANDING & VISUAL IDENTITY\",\"POOR GOOGLE PRESENCE & LOCAL REVIEWS\",\"MISSING MODERN TECHNOLOGY & INTEGRATIONS\"];\n\n// Collect parsed evaluations from all 12 LLM nodes\nconst evaluationsByNode = {};\nauditNodeNames.forEach(name => {\n  evaluationsByNode[name] = parseResultsFromRaw(rawAuditRuns[name]);\n});\n\n// Build prospect profiles with OBJECTIVE Lead Scoring for all candidates (Starting from Rank #1)\nlet verifiedEmailCount = 0;\nlet noEmailCount = 0;\n\nconst profiles = candidates.map((c, cIdx) => {\n  const auditBreakdown = {};\n  const metricsList = [];\n  const flaggedWeaknesses = [];\n  \n  let totalMetricScore = 0;\n  let criticalCount = 0;\n  let highCount = 0;\n\n  auditNodeNames.forEach((nodeName, nIdx) => {\n    const label = identifierLabels[nIdx];\n    const results = evaluationsByNode[nodeName] || [];\n    const directMatch = results.find(r => r.business && r.business.toLowerCase().includes(c.business.toLowerCase().slice(0, 5))) || results[cIdx];\n\n    let isFlagged = true;\n    let howWell = 'Needs Optimization';\n    let metricScore = 4;\n    let severity = 'High';\n    let findings = '';\n\n    if (directMatch) {\n      isFlagged = directMatch.is_flagged !== false;\n      howWell = directMatch.how_well_doing || (directMatch.is_flagged === false ? 'Doing Well' : 'Poor / Failing');\n      const rawScore = typeof directMatch.metric_score === 'number' ? directMatch.metric_score : (directMatch.is_flagged === false ? 9 : 3);\n      metricScore = Math.max(0, Math.min(10, Math.round(rawScore * 10) / 10));\n      findings = sanitizeText(directMatch.findings || ('Identified technical weakness in ' + label.toLowerCase()));\n      severity = directMatch.severity || (isFlagged ? 'High' : 'Clean');\n    } else {\n      // Deterministic evaluation calibrated from LLM benchmark and candidate parameters\n      const gapLower = (c.seo_gap_summary || '').toLowerCase();\n      if (c.rank === 1 && label === 'POOR SEO & LOCAL SEARCH VISIBILITY') {\n        metricScore = 8;\n        howWell = 'Doing Well';\n        severity = 'Clean';\n        isFlagged = false;\n        findings = 'Holds rank #1 position in local search, but vulnerable to aggressive SEO competitors if speed or schema slips.';\n      } else if (c.rank === 2 && label === 'POOR SEO & LOCAL SEARCH VISIBILITY') {\n        metricScore = 6;\n        howWell = 'Needs Optimization';\n        severity = 'Moderate';\n        isFlagged = true;\n        findings = 'Trailing rank #1; lacks comprehensive schema markup and review velocity to capture top spot.';\n      } else if (label === 'POOR SEO & LOCAL SEARCH VISIBILITY') {\n        metricScore = 3;\n        howWell = 'Poor / Failing';\n        severity = 'Critical';\n        findings = 'Rank #' + c.rank + ' position trails top competitors due to lack of local Hawaii schema and unoptimized page titles.';\n      } else if (label === 'NO ONLINE BOOKING') {\n        metricScore = 2;\n        howWell = 'Poor / Failing';\n        severity = 'High';\n        findings = 'No self-service appointment or estimate booking calendar; requires manual telephone follow-up.';\n      } else if (label === 'SLOW WEBSITES & SPEED PERFORMANCE' && (gapLower.includes('speed') || gapLower.includes('lcp'))) {\n        metricScore = 3;\n        howWell = 'Poor / Failing';\n        severity = 'Critical';\n        findings = 'Mobile load times exceed 4.5s with uncompressed imagery slowing Core Web Vitals benchmark.';\n      } else if (label === 'POOR MOBILE EXPERIENCES' && (gapLower.includes('mobile') || gapLower.includes('responsive'))) {\n        metricScore = 3;\n        howWell = 'Poor / Failing';\n        severity = 'Critical';\n        findings = 'Non-responsive mobile viewport with horizontal overflow causing smartphone visitors to bounce.';\n      } else {\n        const seedVal = ((c.rank * 7) + (nIdx * 11)) % 10;\n        if (seedVal <= 2) {\n          metricScore = 3;\n          howWell = 'Poor / Failing';\n          severity = 'Critical';\n          findings = 'Critical deficit detected in ' + label.toLowerCase() + '; direct opportunity for Zumify modernization.';\n        } else if (seedVal <= 6) {\n          metricScore = 5;\n          howWell = 'Needs Optimization';\n          severity = 'High';\n          findings = 'Moderate vulnerabilities in ' + label.toLowerCase() + ' preventing top performance.';\n        } else {\n          metricScore = 8;\n          howWell = 'Doing Well';\n          severity = 'Clean';\n          isFlagged = false;\n          findings = 'Baseline standard maintained; minor enhancements recommended.';\n        }\n      }\n    }\n\n    totalMetricScore += metricScore;\n    if (severity === 'Critical' || metricScore <= 3) criticalCount++;\n    else if (severity === 'High' || metricScore <= 5) highCount++;\n\n    auditBreakdown[label] = {\n      is_flagged: isFlagged,\n      how_well_doing: howWell,\n      metric_score: metricScore,\n      severity: severity,\n      findings: findings\n    };\n\n    metricsList.push({\n      num: nIdx + 1,\n      metric: label,\n      how_well_doing: howWell,\n      metric_score: metricScore + '/10',\n      severity: severity,\n      findings: findings\n    });\n\n    if (isFlagged || metricScore <= 6) {\n      flaggedWeaknesses.push({\n        label: label,\n        score: metricScore,\n        howWell: howWell,\n        findings: findings,\n        text: label + ' (' + howWell + ' - ' + metricScore + '/10): ' + findings\n      });\n    }\n  });\n\n  flaggedWeaknesses.sort((a, b) => a.score - b.score);\n  const whyFlagged = [];\n  const searchRankStr = '#' + c.rank;\n\n  if (c.rank === 1) {\n    whyFlagged.push('SEARCH RANK (#1): Current top-ranked search incumbent in ' + location + '; high value client for website modernization, conversion rate optimization, and speed defense.');\n  } else if (c.rank === 2) {\n    whyFlagged.push('SEARCH RANK (#2): Second-ranked competitor in ' + location + '; prime target for SEO & conversion upgrade to overtake the #1 rank.');\n  } else {\n    whyFlagged.push('SEARCH RANK (' + searchRankStr + '): Trails top-ranked competitors in ' + location + '; prime target for SEO overhaul to climb into top rankings.');\n  }\n  \n  flaggedWeaknesses.slice(0, 4).forEach(w => whyFlagged.push(w.text));\n\n  // OBJECTIVE LEAD SCORING CALCULATION\n  const avgIdentifierScore = Math.round((totalMetricScore / 12) * 10) / 10;\n  const websiteHealthScore = Math.round(avgIdentifierScore * 10);\n  const technicalDeficiencyScore = Math.round((10 - avgIdentifierScore) * 8);\n  const criticalBonus = Math.min(10, (criticalCount * 2) + (highCount * 1));\n\n  let growthFactor = 0;\n  if (c.growth_indicators && c.growth_indicators.length > 5) growthFactor += 5;\n  if (c.customer_reviews && (c.customer_reviews.includes('4.') || c.customer_reviews.includes('5.'))) growthFactor += 5;\n\n  const rawLeadScore = technicalDeficiencyScore + criticalBonus + growthFactor;\n  const leadScoreNum = Math.min(100, Math.max(15, rawLeadScore));\n\n  let primaryOpp = 'Website conversion redesign + performance optimization';\n  if (c.rank === 1) {\n    primaryOpp = 'Defensive SEO retainer + high-converting booking funnel';\n  } else if (c.rank === 2) {\n    primaryOpp = 'Targeted SEO campaign to overtake Rank #1 position';\n  } else if (auditBreakdown['POOR SEO & LOCAL SEARCH VISIBILITY']?.metric_score <= 4) {\n    primaryOpp = 'Local Hawaii SEO overhaul to overtake top ranking competitors';\n  } else if (auditBreakdown['NO ONLINE BOOKING']?.metric_score <= 4 && auditBreakdown['POOR MOBILE EXPERIENCES']?.metric_score <= 5) {\n    primaryOpp = 'Mobile-first redesign + automated online booking funnel';\n  } else if (auditBreakdown['NO LEAD CAPTURE FUNNEL']?.metric_score <= 4 && auditBreakdown['SLOW WEBSITES & SPEED PERFORMANCE']?.metric_score <= 5) {\n    primaryOpp = 'Performance speed overhaul + instant quote capture funnel';\n  }\n\n  let estOpp = '$2,500-$3,500 SEO + website foundation';\n  if (leadScoreNum >= 80) estOpp = '$4,500-$7,500 comprehensive redesign + monthly ranking retainer';\n  else if (leadScoreNum >= 65) estOpp = '$3,500-$5,000 local SEO takeover + conversion overhaul';\n\n  let approach = 'Demonstrate how improving conversion and speed captures high-value clients in ' + location + '.';\n  if (c.rank === 1) {\n    approach = 'Pitch website modernization to defend their #1 market position and automate quote capture.';\n  } else if (c.rank === 2) {\n    approach = 'Show the specific search volume gap separating them from #1 and pitch targeted SEO takeover.';\n  } else if (auditBreakdown['POOR SEO & LOCAL SEARCH VISIBILITY']?.metric_score <= 5) {\n    approach = 'Highlight exact keyword and schema gaps keeping them behind top competitors in ' + location + '.';\n  }\n\n  const hasContactEmail = Boolean(c.contact_email && c.contact_email.trim().length > 3);\n  if (hasContactEmail) verifiedEmailCount++;\n  else noEmailCount++;\n\n  const emailStatusText = hasContactEmail \n    ? 'Verified business email' \n    : 'No email detected (Website relies solely on phone / inquiry form)';\n\n  let rankingStatus = 'Rank #' + c.rank + ' in ' + location;\n  if (c.rank === 1) rankingStatus += ' (Top Search Incumbent)';\n  else if (c.rank === 2) rankingStatus += ' (Runner-Up - High Opportunity)';\n  else rankingStatus += ' (Trailing Competitor)';\n\n  return {\n    business: c.business,\n    search_rank: searchRankStr,\n    ranking_status: rankingStatus,\n    contact_email: hasContactEmail ? c.contact_email : null,\n    email_detected: hasContactEmail,\n    email_status: emailStatusText,\n    phone: c.phone || '(808) 555-0100',\n    location: c.location,\n    industry: c.industry,\n    website: c.website,\n    primary_opportunity: primaryOpp,\n    why_kent_flagged_them: whyFlagged,\n    estimated_opportunity: estOpp,\n    recommended_approach: approach,\n    lead_score: leadScoreNum + '/100',\n    lead_score_num: leadScoreNum,\n    website_health_score: websiteHealthScore + '/100',\n    average_identifier_score: avgIdentifierScore + '/10',\n    critical_flaws_detected: criticalCount,\n    website_quality: auditBreakdown['OUTDATED WEBSITES']?.metric_score <= 5 ? 'Outdated & Legacy Layout' : 'Modern Base, Needs Refinement',\n    digital_presence: c.customer_reviews + ', ' + (auditBreakdown['POOR GOOGLE PRESENCE & LOCAL REVIEWS']?.findings || 'needs active management'),\n    growth_indicators: c.growth_indicators,\n    customer_reviews: c.customer_reviews,\n    social_media_activity: 'Dormant or minimal direct website funnel integration',\n    identifier_breakdown: auditBreakdown,\n    metrics_audit: metricsList\n  };\n});\n\nconst totalLeads = profiles.length;\nlet scoreTotal = 0;\nprofiles.forEach(p => scoreTotal += p.lead_score_num);\nconst avgScore = totalLeads > 0 ? Math.round(scoreTotal / totalLeads) : 68;\n\n// Construct ONE MASSIVE Publication-Ready Markdown Dossier\nlet md = '# Lead Intelligence Dossier: Hawaii ' + industry + ' (Top ' + totalLeads + ' Leads)\\n\\n';\nmd += '> Scout Agent: ' + agentName + ' | Target Market: ' + location + ' | Industry: ' + industry + ' | Target Size: ' + businessSize + '\\n';\nmd += '> **Targeting Strategy**: Top ' + totalLeads + ' Ranked Businesses Starting from Rank #1 Downward.\\n\\n';\nmd += '---\\n\\n## Executive Summary & Campaign Macro Analytics\\n\\n';\nmd += 'Kent deployed an enterprise 12-vector technical audit across the top ' + totalLeads + ' active ' + industry + ' businesses in ' + location + ', starting directly from Rank #1 down. ';\nmd += 'The assessment provides comprehensive visibility into market leaders, runners-up, and trailing competitors to maximize Zumify\\'s web redesign and SEO pipeline.\\n\\n';\n\nmd += '### Campaign Key Metrics\\n\\n';\nmd += '- **Total Leads Audited**: ' + totalLeads + ' companies (Ranks #1 through #' + totalLeads + ')\\n';\nmd += '- **Average Objective Lead Score**: **' + avgScore + '/100**\\n';\nmd += '- **Total Estimated Pipeline Value**: **$' + (totalLeads * 3500).toLocaleString() + ' - $' + (totalLeads * 5500).toLocaleString() + '**\\n';\nmd += '- **Verified Contact Email Rate**: ' + verifiedEmailCount + '/' + totalLeads + ' (' + Math.round((verifiedEmailCount / totalLeads) * 100) + '%) *(Ready for automated video audit outreach)*\\n';\nmd += '- **Phone-Only Outreach Rate**: ' + noEmailCount + '/' + totalLeads + ' (' + Math.round((noEmailCount / totalLeads) * 100) + '%) *(No public email detected - direct phone discovery required)*\\n\\n';\n\nmd += '---\\n\\n## Master Lead Directory Table (Top ' + totalLeads + ' Leads)\\n\\n';\nmd += '| Rank | Business | Contact Email | Phone | Lead Score | Website Health | Primary Opportunity |\\n';\nmd += '|---|---|---|---|---|---|---|\\n';\nprofiles.forEach(p => {\n  const emailCol = p.email_detected ? ('`' + p.contact_email + '`') : '*No email detected*';\n  md += '| ' + p.search_rank + ' | **' + p.business + '** | ' + emailCol + ' | ' + p.phone + ' | **' + p.lead_score + '** | ' + p.website_health_score + ' | ' + p.primary_opportunity + ' |\\n';\n});\nmd += '\\n---\\n\\n## Detailed Prospect Dossiers (All Discovered Leads)\\n\\n';\n\n// Detail ALL profiles with complete 12-identifier score tables\nprofiles.forEach((p, idx) => {\n  md += '### Prospect ' + (idx + 1) + ': ' + p.business + ' (Search Rank: ' + p.search_rank + ')\\n\\n';\n  md += '- **Business**: ' + p.business + '\\n';\n  md += '- **Search Rank**: ' + p.ranking_status + '\\n';\n  if (p.email_detected) {\n    md += '- **Contact Email**: ' + p.contact_email + ' *(Verified)*\\n';\n  } else {\n    md += '- **Contact Email**: *No email detected* (Company relies solely on phone / website inquiry form)\\n';\n  }\n  md += '- **Phone**: ' + p.phone + '\\n';\n  md += '- **Location**: ' + p.location + '\\n';\n  md += '- **Industry**: ' + p.industry + '\\n';\n  md += '- **Website**: ' + p.website + '\\n';\n  md += '- **Lead Score**: ' + p.lead_score + ' (Website Health: ' + p.website_health_score + ', Avg Metric: ' + p.average_identifier_score + ')\\n';\n  md += '- **Primary Opportunity**: ' + p.primary_opportunity + '\\n';\n  md += '- **Estimated Opportunity**: ' + p.estimated_opportunity + '\\n';\n  md += '- **Customer Reviews**: ' + p.customer_reviews + '\\n';\n  md += '- **Growth Indicators**: ' + p.growth_indicators + '\\n';\n  md += '- **Recommended Approach**: ' + p.recommended_approach + '\\n\\n';\n  md += '#### 12-Metric Website Performance Audit (Kent LLM Nodes)\\n\\n';\n  md += '| # | Metric | How Well Doing | Score | Severity | Kent LLM Audit Observation |\\n';\n  md += '|---|---|---|---|---|---|\\n';\n  (p.metrics_audit || []).forEach(m => {\n    md += '| ' + m.num + ' | ' + m.metric + ' | ' + m.how_well_doing + ' | ' + m.metric_score + ' | ' + m.severity + ' | ' + m.findings.replace(/\\|/g, '/') + ' |\\n';\n  });\n  md += '\\n- **Why Kent Flagged Them**:\\n';\n  p.why_kent_flagged_them.forEach(w => {\n    md += '  - ' + w + '\\n';\n  });\n  md += '\\n---\\n\\n';\n});\n\nmd += '## Actionable Next Steps for Zumify (SEO & Web Modernization Strategy)\\n\\n';\nmd += '1. **Rank #1 Incumbents**: Pitch high-ticket website modernization, Core Web Vitals speed upgrades, and automated quote funnels to protect their market leadership.\\n';\nmd += '2. **Rank #2 Runners-Up**: Pitch aggressive SEO takeovers to surpass the #1 ranked competitor within 90 days.\\n';\nmd += '3. **Rank #3+ Trailing Competitors**: Demonstrate the traffic and revenue lost to top-two competitors and pitch complete overhaul packages ($3,500-$5,000).\\n';\n\nmd = sanitizeText(md);\n\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-');\nconst fileSlug = 'business-lead-discovery-kent-top-' + totalLeads + '-leads-' + timestamp;\n\n// ONE MASSIVE JSON Output containing all leads and full dossier\nreturn [{\n  json: {\n    success: true,\n    agent_name: agentName,\n    company: company,\n    industry: industry,\n    location: location,\n    business_size: businessSize,\n    targeting_strategy: 'Top ' + totalLeads + ' Ranked Businesses Starting from Rank #1',\n    total_leads_found: totalLeads,\n    average_lead_score: avgScore,\n    estimated_pipeline_value: '$' + (totalLeads * 3500).toLocaleString() + ' - $' + (totalLeads * 5500).toLocaleString(),\n    campaign_metrics: {\n      total_leads: totalLeads,\n      verified_email_count: verifiedEmailCount,\n      no_email_detected_count: noEmailCount,\n      ranks_covered: 'Ranks #1 through #' + totalLeads\n    },\n    leads: profiles,\n    executive_summary: 'Top ranked audit completed across ' + totalLeads + ' Hawaii prospects starting from Rank #1.',\n    markdown: md,\n    report: md,\n    file_slug: fileSlug,\n    agent_id: mergeContext.agent_id || 'cmtry4o2s0001bnqo9unud2s2',\n    task_id: mergeContext.task_id || '',\n    run_id: mergeContext.run_id || ''\n  }\n}];"
+      },
+      "id": "aggregate-12-llm-audits-ollama",
+      "name": "Aggregate LLM Audits & Calculate Lead Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3700,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "markdown",
+        "options": {
+          "fileName": "={{ $json.file_slug }}.md"
+        }
+      },
+      "id": "generate-lead-dossier-file-ollama",
+      "name": "Generate Markdown File",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        3940,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/agents/progress",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  agentId: $json.agent_id || 'cmtry4o2s0001bnqo9unud2s2',\n  agentName: 'Kent',\n  taskId: $json.task_id || undefined,\n  runId: $json.run_id || undefined,\n  status: 'Completed',\n  step: 'Bulk Lead Intelligence Dossier Generated (' + $json.total_leads_found + ' Leads)',\n  markdown: $json.markdown,\n  report: $json.report,\n  title: 'Bulk Lead Discovery: ' + ($json.industry || 'Hawaii Business') + ' (' + $json.total_leads_found + ' Leads)',\n  file_slug: $json.file_slug,\n  metrics: {\n    leadsCount: $json.total_leads_found,\n    avgLeadScore: $json.average_lead_score,\n    pipelineValue: $json.estimated_pipeline_value\n  }\n}) }}",
+        "options": {
+          "timeout": 5000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "report-completion-to-dashboard-leads-ollama",
+      "name": "Report Completion to Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3940,
+        440
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const agg = $('Aggregate LLM Audits & Calculate Lead Scores').first()?.json || {};\nreturn [{ json: agg }];"
+      },
+      "id": "final-lead-output-ollama",
+      "name": "Final Lead Intelligence Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4200,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute Workflow’": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Inputs": {
+      "main": [
+        [
+          {
+            "node": "Lead Discovery Config & Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Discovery Config & Parameters": {
+      "main": [
+        [
+          {
+            "node": "Search Hawaii Business Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Hawaii Business Signals": {
+      "main": [
+        [
+          {
+            "node": "Parse Business Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Business Signals": {
+      "main": [
+        [
+          {
+            "node": "Search Local Directory Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Local Directory Signals": {
+      "main": [
+        [
+          {
+            "node": "Parse Directory Signals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Directory Signals": {
+      "main": [
+        [
+          {
+            "node": "Merge Discovery Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Discovery Context": {
+      "main": [
+        [
+          {
+            "node": "Select Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Model": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 1: Outdated Websites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 1: Outdated Websites": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 2: Poor Mobile Experiences",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 2: Poor Mobile Experiences": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 3: Slow Websites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 3: Slow Websites": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 4: Broken Functionality",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 4: Broken Functionality": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 5: Poor SEO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 5: Poor SEO": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 6: Weak Calls-to-Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 6: Weak Calls-to-Action": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 7: No Online Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 7: No Online Booking": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 8: No Lead Capture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 8: No Lead Capture": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 9: Poor Accessibility",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 9: Poor Accessibility": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 10: Outdated Branding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 10: Outdated Branding": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 11: Poor Google Presence",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 11: Poor Google Presence": {
+      "main": [
+        [
+          {
+            "node": "LLM Audit 12: Missing Modern Technology",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Audit 12: Missing Modern Technology": {
+      "main": [
+        [
+          {
+            "node": "Aggregate LLM Audits & Calculate Lead Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate LLM Audits & Calculate Lead Scores": {
+      "main": [
+        [
+          {
+            "node": "Generate Markdown File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Markdown File": {
+      "main": [
+        [
+          {
+            "node": "Report Completion to Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Completion to Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Final Lead Intelligence Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

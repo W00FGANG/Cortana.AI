@@ -6,7 +6,7 @@ import {
   Send, Loader2, Sparkles, AlertCircle, CheckCircle2, Mail, Users, Upload, 
   RefreshCw, Megaphone, ExternalLink, Share2, Globe, Image as ImageIcon, 
   Video, FileText, ChevronDown, ChevronUp, Hash, SlidersHorizontal, Check,
-  FolderUp, Link2, X
+  FolderUp, Link2, X, Search, Building2, Bot
 } from "lucide-react";
 
 interface AgentRunFormProps {
@@ -14,10 +14,12 @@ interface AgentRunFormProps {
   agentName: string;
   isEmailAgent?: boolean;
   isMarketingAgent?: boolean;
+  isLeadAgent?: boolean;
   defaultKeywords?: string;
   defaultCategory?: string;
   defaultLanguage?: string;
 }
+
 
 const quickSocialTemplates = [
   {
@@ -74,12 +76,40 @@ export function AgentRunForm({
   agentName,
   isEmailAgent = false,
   isMarketingAgent = false,
+  isLeadAgent = false,
   defaultKeywords = "Modern Web Architecture & AI Agents",
   defaultCategory = "AI",
   defaultLanguage = "en",
 }: AgentRunFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Kent Lead Discovery state
+  const [industry, setIndustry] = useState("Construction");
+  const [location, setLocation] = useState("Honolulu, Hawaii");
+  const [businessSize, setBusinessSize] = useState("Small (5-25 employees)");
+  const [targetLeadCount, setTargetLeadCount] = useState<string>("10");
+  const [leadCountError, setLeadCountError] = useState<string | null>(null);
+  const [additionalFocus, setAdditionalFocus] = useState(
+    "Audit top ranked local businesses starting from rank 1, focusing on SEO vulnerabilities, slow mobile pages, or missing quote funnels."
+  );
+
+  const handleLeadCountChange = (val: string) => {
+    setTargetLeadCount(val);
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setLeadCountError("Lead count is required (must be a number between 1 and 100).");
+      return;
+    }
+    const num = Number(trimmed);
+    if (isNaN(num) || !Number.isInteger(num)) {
+      setLeadCountError("Lead count must be a whole number.");
+    } else if (num < 1 || num > 100) {
+      setLeadCountError("Lead count must be between 1 and 100.");
+    } else {
+      setLeadCountError(null);
+    }
+  };
 
   // Email agent specific state
   const [emailMode, setEmailMode] = useState<"single" | "upload" | "followup">("single");
@@ -318,6 +348,28 @@ export function AgentRunForm({
             additionalContext: additionalContext.trim(),
           };
         }
+      } else if (isLead) {
+        if (!industry.trim()) {
+          throw new Error("Industry is required.");
+        }
+        if (!location.trim()) {
+          throw new Error("Location is required.");
+        }
+        const trimmedCount = String(targetLeadCount).trim();
+        const num = Number(trimmedCount);
+        if (!trimmedCount || isNaN(num) || !Number.isInteger(num) || num < 1 || num > 100) {
+          const errMsg = "Target lead count must be a valid number between 1 and 100.";
+          setLeadCountError(errMsg);
+          throw new Error(errMsg);
+        }
+        setLeadCountError(null);
+        requestBody = {
+          industry: industry.trim(),
+          location: location.trim(),
+          businessSize,
+          targetLeadCount: num,
+          additionalFocus: additionalFocus.trim(),
+        };
       } else {
         requestBody = {
           keywords,
@@ -346,6 +398,10 @@ export function AgentRunForm({
         text: data.message || "Execution initiated successfully! Progress streaming below.",
       });
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("agent-run-started", { detail: { agentId } }));
+      }
+
       router.refresh();
     } catch (err: any) {
       setStatusMessage({
@@ -359,6 +415,7 @@ export function AgentRunForm({
 
   const isEmail = isEmailAgent || agentName.toLowerCase().includes("kainoa");
   const isMarketing = isMarketingAgent || agentName.toLowerCase().includes("maya") || agentName.toLowerCase().includes("marketing");
+  const isLead = isLeadAgent || agentName.toLowerCase().includes("kent") || agentName.toLowerCase().includes("lead");
 
   const theme = isEmail
     ? {
@@ -378,6 +435,15 @@ export function AgentRunForm({
         buttonBg: "bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400",
         badgeBg: "bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400",
       }
+    : isLead
+    ? {
+        border: "border-blue-200 dark:border-blue-900/50",
+        gradient: "bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/30 dark:from-slate-900 dark:via-slate-800/80 dark:to-slate-900",
+        iconBg: "bg-blue-600",
+        focusRing: "focus:border-blue-500 focus:ring-blue-500",
+        buttonBg: "bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400",
+        badgeBg: "bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400",
+      }
     : {
         border: "border-rose-200 dark:border-rose-900/50",
         gradient: "bg-gradient-to-br from-rose-50/50 via-white to-orange-50/30 dark:from-slate-900 dark:via-slate-800/80 dark:to-slate-900",
@@ -392,7 +458,7 @@ export function AgentRunForm({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-2.5">
           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${theme.iconBg} text-white shadow-sm shrink-0`}>
-            {isEmail ? <Mail className="h-4 w-4" /> : isMarketing ? (marketingMode === "publisher" ? <Share2 className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />) : <Sparkles className="h-4 w-4" />}
+            {isEmail ? <Mail className="h-4 w-4" /> : isMarketing ? (marketingMode === "publisher" ? <Share2 className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />) : isLead ? <Search className="h-4 w-4" /> : <Sparkles className="h-4 w-4" />}
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">
@@ -402,6 +468,8 @@ export function AgentRunForm({
                 ? marketingMode === "publisher"
                   ? "Run Social Media Publisher Workflow"
                   : "Run Social Media Research Workflow"
+                : isLead
+                ? "Run Business Lead Discovery Workflow"
                 : "Run Agent Workflow"}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -411,6 +479,8 @@ export function AgentRunForm({
                 ? marketingMode === "publisher"
                   ? "Cross-post and publish content directly to X (Twitter) & LinkedIn with rich media"
                   : "Live YouTube Shorts scraping, Google Search Trends, and viral video ideation"
+                : isLead
+                ? "Autonomous 12-LLM technical audit auditing top businesses starting from Rank #1 downward"
                 : "Autonomous workflow execution with live progress"}
             </p>
           </div>
@@ -1119,6 +1189,119 @@ export function AgentRunForm({
                 </div>
               </div>
             )
+          ) : isLead ? (
+            <div className="space-y-4">
+              {/* Two Column Grid: Industry and Location */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="industry" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Industry / Vertical
+                  </label>
+                  <input
+                    type="text"
+                    id="industry"
+                    name="industry"
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                    placeholder="e.g. Construction, Dental, Solar, Real Estate, Boat Repair"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="location" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Location / Market
+                  </label>
+                  <input
+                    type="text"
+                    id="location"
+                    name="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    placeholder="e.g. Honolulu, Hawaii; Maui; Kauai; Kailua-Kona"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Two Column Grid: Business Size and Lead Count */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="businessSize" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Target Business Size
+                  </label>
+                  <select
+                    id="businessSize"
+                    name="businessSize"
+                    value={businessSize}
+                    onChange={(e) => setBusinessSize(e.target.value)}
+                    disabled={isLoading}
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100"
+                  >
+                    <option value="Small (5-25 employees)">Small (5-25 employees)</option>
+                    <option value="Solo / 1-3 specialists">Solo / 1-3 specialists</option>
+                    <option value="Mid-size (25-50 employees)">Mid-size (25-50 employees)</option>
+                    <option value="All Sizes">All Sizes (Established local businesses)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="targetLeadCount" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      Target Lead Count (1–100)
+                    </label>
+                    <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                      Starts from Rank #1 down
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    id="targetLeadCount"
+                    name="targetLeadCount"
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={targetLeadCount}
+                    onChange={(e) => handleLeadCountChange(e.target.value)}
+                    placeholder="Enter 1–100"
+                    disabled={isLoading}
+                    className={`w-full rounded-lg border bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 ${
+                      leadCountError
+                        ? "border-rose-500 focus:border-rose-500 focus:ring-rose-500 text-rose-900 dark:text-rose-100 bg-rose-50/20"
+                        : "border-slate-300 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500"
+                    } disabled:bg-slate-100`}
+                    required
+                  />
+                  {leadCountError && (
+                    <p className="mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400 flex items-center gap-1 animate-in fade-in duration-200">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      {leadCountError}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Focus or Constraints */}
+              <div>
+                <label htmlFor="additionalFocus" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Audit Focus & Search Constraints
+                </label>
+                <textarea
+                  id="additionalFocus"
+                  name="additionalFocus"
+                  rows={2}
+                  value={additionalFocus}
+                  onChange={(e) => setAdditionalFocus(e.target.value)}
+                  placeholder="e.g. Audit top ranked local businesses starting from rank 1, focusing on SEO vulnerabilities, slow mobile pages, or missing quote funnels."
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-blue-500 focus:outline-hidden focus:ring-1 focus:ring-blue-500 disabled:bg-slate-100"
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
           ) : (
             <>
               <div>
@@ -1211,6 +1394,8 @@ export function AgentRunForm({
                   ? marketingMode === "publisher"
                     ? "Live Social Media Publishing"
                     : "Live Scraped Research & Video Ideation"
+                  : isLead
+                  ? "Autonomous 12-LLM Technical Opportunity Scout"
                   : "Autonomous Research & Generation"}
               </span>
             </div>
@@ -1229,6 +1414,8 @@ export function AgentRunForm({
                       ? marketingMode === "publisher"
                         ? "Publishing to platforms..."
                         : "Scraping & Synthesizing Trends..."
+                      : isLead
+                      ? `Auditing Top ${targetLeadCount || "10"} Leads...`
                       : "Executing Workflow..."}
                   </span>
                 </>
@@ -1244,6 +1431,8 @@ export function AgentRunForm({
                       ? marketingMode === "publisher"
                         ? "Publish to Platforms"
                         : "Launch Research Workflow"
+                      : isLead
+                      ? `Discover Top ${targetLeadCount || "10"} Leads (Kent)`
                       : "Launch Workflow"}
                   </span>
                 </>

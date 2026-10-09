@@ -70,6 +70,7 @@ async function main() {
       schedule: 'Weekdays — 10:00 AM',
       avatar: '/assets/KentProfile.jpg',
       status: 'Active',
+      n8nWorkflowId: 'qspGwi1DJSO0X9fw',
     },
   });
 

@@ -164,12 +164,19 @@ async function executeWorkflowInBackground({
             responseData.articleJson ||
             responseData.post_summary ||
             responseData.platforms ||
+            responseData.leads ||
+            responseData.total_leads_found ||
+            responseData.targeting_strategy ||
             responseData.output)));
 
     if (isDirectCompleted) {
-      // Unwrap clean article JSON if responseData is wrapped
+      const isKent =
+        agentName?.toLowerCase().includes("kent") ||
+        Boolean(responseData?.leads || responseData?.total_leads_found || responseData?.targeting_strategy);
+
+      // Unwrap clean article JSON if responseData is wrapped (for Article Generator Harper)
       let cleanArticle = responseData;
-      if (responseData && typeof responseData === "object") {
+      if (!isKent && responseData && typeof responseData === "object") {
         if (responseData.articleJson && typeof responseData.articleJson === "object") {
           cleanArticle = responseData.articleJson;
         } else if (typeof responseData.articleJson === "string") {
@@ -183,10 +190,8 @@ async function executeWorkflowInBackground({
             cleanArticle = responseData.data;
           }
         }
-      }
 
-      // If cleanArticle still has telemetry wrapper fields, clean them
-      if (cleanArticle && typeof cleanArticle === "object") {
+        // If cleanArticle still has telemetry wrapper fields, clean them
         const {
           step: _s,
           result: _r,
@@ -216,7 +221,9 @@ async function executeWorkflowInBackground({
       }
 
       const resultText =
-        typeof cleanArticle === "object"
+        isKent && responseData && typeof responseData === "object"
+          ? JSON.stringify(responseData, null, 2)
+          : typeof cleanArticle === "object"
           ? JSON.stringify(cleanArticle, null, 2)
           : (typeof responseData === "object" ? JSON.stringify(responseData, null, 2) : resText);
 
@@ -314,6 +321,18 @@ async function executeWorkflowInBackground({
             ? `Completed strategic market research report on "${focusTopic}" with YouTube & audience trends`
             : `Completed social media and market research for "${articleTitle}"`;
         }
+      } else if (agentName?.toLowerCase().includes("kent") || responseData?.leads || responseData?.recipients || Array.isArray(responseData) || responseData?.total_leads_found) {
+        const leadCount = responseData?.total_leads_found || 
+          (Array.isArray(responseData?.leads) ? responseData.leads.length : 
+          (Array.isArray(responseData?.recipients) ? responseData.recipients.length : 
+          (Array.isArray(responseData) ? responseData.length : null)));
+        const avgScore = responseData?.average_lead_score;
+        const pipelineVal = responseData?.estimated_pipeline_value;
+        const indName = responseData?.industry || (payload as any)?.industry || "Hawaii Business";
+        const locName = responseData?.location || (payload as any)?.location || "Honolulu";
+
+        finalAction = "Lead Intelligence Dossier Generated";
+        finalDescription = `Audited ${leadCount || "top"} ${indName} leads in ${locName}${avgScore ? ` (Avg Score: ${avgScore}/100)` : ""}${pipelineVal ? ` (Pipeline: ${pipelineVal})` : ""}`;
       } else {
         finalDescription = `Workflow completed for ${agentName}: ${articleTitle}`;
       }
@@ -328,6 +347,7 @@ async function executeWorkflowInBackground({
       });
 
       try {
+        revalidatePath(`/${agentId}`);
         revalidatePath(`/${agentName?.toLowerCase()}`);
         revalidatePath(`/agents/${agentId}`);
         revalidatePath(`/agents/${agentName?.toLowerCase()}`);
@@ -416,6 +436,7 @@ async function executeWorkflowInBackground({
       });
 
       try {
+        revalidatePath(`/${agentId}`);
         revalidatePath(`/${agentName?.toLowerCase()}`);
         revalidatePath(`/agents/${agentId}`);
         revalidatePath(`/agents/${agentName?.toLowerCase()}`);
@@ -511,6 +532,15 @@ function resolveWebhookUrl(
     const followupWebhook = process.env.N8N_GMAIL_FOLLOWUP_WEBHOOK_URL?.trim();
     return followupWebhook || "http://127.0.0.1:5678/webhook/gmail-followup";
   }
+  if (
+    agent.n8nWorkflowId === "qspGwi1DJSO0X9fw" ||
+    agent.n8nWorkflowId === "GYDopN1Ss4cZpWSR" ||
+    agent.role?.toLowerCase().includes("lead") ||
+    agent.name?.toLowerCase().includes("kent")
+  ) {
+    const kentWebhook = process.env.N8N_KENT_WEBHOOK_URL?.trim();
+    return kentWebhook || "http://127.0.0.1:5678/webhook/business-lead-discovery";
+  }
   if (agent.n8nWorkflowId === "Al3atlOTCSx8ZNgN" || agent.role?.toLowerCase().includes("outreach") || agent.role?.toLowerCase().includes("email") || agent.name?.toLowerCase().includes("kainoa")) {
     const emailWebhook = process.env.N8N_EMAIL_WEBHOOK_URL?.trim();
     return emailWebhook || "http://127.0.0.1:5678/webhook/email-agent";
@@ -574,6 +604,13 @@ export async function POST(
     let targetAudience = "";
     let additionalContext = "";
 
+    // Kent Lead Discovery Fields
+    let industry = "";
+    let location = "";
+    let businessSize = "";
+    let targetLeadCount = 10;
+    let additionalFocus = "";
+
     // Social Publisher Fields
     let postText = "";
     let platforms = "both";
@@ -605,6 +642,12 @@ export async function POST(
         targetAudience = body.targetAudience || body.target_audience || body["Target Audience"] || "";
         additionalContext = body.additionalContext || body.additional_context || body["Additional Context"] || "";
         
+        industry = body.industry || body.Industry || "";
+        location = body.location || body.Location || "";
+        businessSize = body.businessSize || body.business_size || body["Business Size"] || "";
+        targetLeadCount = Number(body.targetLeadCount || body.target_lead_count || body.lead_count || body["Target Lead Count"]) || 10;
+        additionalFocus = body.additionalFocus || body.additional_focus || body["Additional Focus or Constraints"] || "";
+
         postText = body.postText || body.post_text || body.text || body.content || body["Post Text"] || "";
         platforms = body.platforms || body.target_platforms || body["Target Platforms"] || "both";
         mediaType = body.mediaType || body.media_type || body["Media Type"] || "NONE";
@@ -640,6 +683,12 @@ export async function POST(
         focusTopic = (formData.get("focusTopic") as string) || (formData.get("focus_topic") as string) || (formData.get("Focus Topic") as string) || "";
         targetAudience = (formData.get("targetAudience") as string) || (formData.get("target_audience") as string) || (formData.get("Target Audience") as string) || "";
         additionalContext = (formData.get("additionalContext") as string) || (formData.get("additional_context") as string) || (formData.get("Additional Context") as string) || "";
+
+        industry = (formData.get("industry") as string) || (formData.get("Industry") as string) || "";
+        location = (formData.get("location") as string) || (formData.get("Location") as string) || "";
+        businessSize = (formData.get("businessSize") as string) || (formData.get("business_size") as string) || (formData.get("Business Size") as string) || "";
+        targetLeadCount = Number(formData.get("targetLeadCount") || formData.get("target_lead_count") || formData.get("lead_count") || formData.get("Target Lead Count")) || 10;
+        additionalFocus = (formData.get("additionalFocus") as string) || (formData.get("additional_focus") as string) || (formData.get("Additional Focus or Constraints") as string) || "";
 
         postText = (formData.get("postText") as string) || (formData.get("post_text") as string) || (formData.get("text") as string) || "";
         platforms = (formData.get("platforms") as string) || (formData.get("target_platforms") as string) || "both";
@@ -679,6 +728,12 @@ export async function POST(
       agent.role?.toLowerCase().includes("marketing") ||
       agent.name?.toLowerCase().includes("maya");
 
+    const isLeadWorkflow =
+      agent.n8nWorkflowId === "qspGwi1DJSO0X9fw" ||
+      agent.n8nWorkflowId === "GYDopN1Ss4cZpWSR" ||
+      agent.role?.toLowerCase().includes("lead") ||
+      agent.name?.toLowerCase().includes("kent");
+
     const isFollowupWorkflow =
       isEmailWorkflow &&
       (mode.toLowerCase().includes("followup") || mode.toLowerCase().includes("follow-up"));
@@ -696,7 +751,36 @@ export async function POST(
     let runInput = "";
     let payload: any = null;
 
-    if (isSocialPublisherWorkflow) {
+    if (isLeadWorkflow) {
+      const ind = industry.trim() || "Construction";
+      const loc = location.trim() || "Honolulu, Hawaii";
+      const size = businessSize.trim() || "Small (5-25 employees)";
+      const count = Number(targetLeadCount);
+
+      if (isNaN(count) || !Number.isInteger(count) || count < 1 || count > 100) {
+        return NextResponse.json(
+          { success: false, message: "Target lead count must be a number between 1 and 100." },
+          { status: 400 }
+        );
+      }
+
+      taskTitle = `Lead Discovery: ${ind} in ${loc} (${count} Leads)`;
+      taskDesc = `Auditing Ranks #1 downward | Size: ${size}`;
+      runInput = `Industry: ${ind}\nLocation: ${loc}\nSize: ${size}\nTarget Leads: ${count}${additionalFocus ? `\nFocus: ${additionalFocus}` : ""}`;
+
+      payload = {
+        industry: ind,
+        location: loc,
+        business_size: size,
+        lead_count: count,
+        additional_focus: additionalFocus || "Audit top ranked local businesses starting from rank 1.",
+        Industry: ind,
+        Location: loc,
+        "Business Size": size,
+        "Target Lead Count": String(count),
+        "Additional Focus or Constraints": additionalFocus || "Audit top ranked local businesses starting from rank 1.",
+      };
+    } else if (isSocialPublisherWorkflow) {
       const cleanPostText = postText.trim() || "Autonomous social media publishing update";
       const snippet = cleanPostText.length > 50 ? `${cleanPostText.slice(0, 47)}...` : cleanPostText;
       const targetPlatformUpper = platforms === "both" ? "X & LinkedIn" : platforms === "x" ? "X (Twitter)" : "LinkedIn";
@@ -846,6 +930,9 @@ export async function POST(
       } else if (isMarketingWorkflow) {
         startAction = "Market & Trend Research Started";
         startDesc = `Analyzing search trends, video engagement, and audience demand for "${focusTopic.trim() || 'Hawaii business & AI automation'}"`;
+      } else if (isLeadWorkflow) {
+        startAction = "Auditing Business Signals & Directories";
+        startDesc = `Searching top ranked ${industry || 'local'} businesses in ${location || 'Hawaii'} starting from Rank #1 downward`;
       } else if (isFollowupWorkflow) {
         startAction = "Scanning Gmail For Follow-ups";
       }

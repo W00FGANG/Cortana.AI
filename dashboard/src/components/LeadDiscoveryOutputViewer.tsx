@@ -29,7 +29,97 @@ interface LeadItem {
   recommended_approach?: string;
   estimated_opportunity?: string;
   metrics_audit?: any[];
+  top_3_problems?: any[];
   [key: string]: any;
+}
+
+export interface TopProblem {
+  title: string;
+  score?: string;
+  severity?: string;
+  scoreNum: number;
+  finding: string;
+}
+
+export function getTop3AuditProblems(lead: LeadItem): TopProblem[] {
+  if (Array.isArray(lead.top_3_problems) && lead.top_3_problems.length > 0) {
+    return lead.top_3_problems.slice(0, 3).map((p: any) => ({
+      title: p.metric || p.title || "Technical Deficit",
+      score: p.score,
+      severity: p.severity,
+      scoreNum: typeof p.score === "number" ? p.score : (parseInt(p.score) || 3),
+      finding: p.findings || p.description || p.finding || "",
+    }));
+  }
+
+  const metrics = Array.isArray(lead.metrics_audit) ? lead.metrics_audit : [];
+  if (metrics.length > 0) {
+    const problems = metrics
+      .filter((m: any) => {
+        const howWell = (m.how_well_doing || "").toLowerCase();
+        return !howWell.includes("doing well") && !howWell.includes("clean");
+      })
+      .map((m: any) => {
+        let scoreVal = 5;
+        if (typeof m.metric_score === "number") scoreVal = m.metric_score;
+        else if (typeof m.metric_score === "string") {
+          const match = m.metric_score.match(/\d+/);
+          if (match) scoreVal = parseInt(match[0], 10);
+        }
+        return {
+          title: m.metric || "Website Deficit",
+          score: `${scoreVal}/10`,
+          severity: m.severity || (scoreVal <= 3 ? "Critical" : "High"),
+          scoreNum: scoreVal,
+          finding: m.findings || "",
+        };
+      });
+
+    problems.sort((a, b) => a.scoreNum - b.scoreNum);
+    if (problems.length >= 3) return problems.slice(0, 3);
+    if (problems.length > 0) return problems;
+  }
+
+  const rawFlags = Array.isArray(lead.why_kent_flagged_them)
+    ? lead.why_kent_flagged_them
+    : Array.isArray(lead.why_kent_flagged)
+    ? lead.why_kent_flagged
+    : [];
+
+  const parsedFromFlags = rawFlags
+    .filter((f: any) => typeof f === "string" && !f.toUpperCase().startsWith("SEARCH RANK"))
+    .map((flag: string) => {
+      const match = flag.match(/^([^:(]+)(?:\s*\(([^)]+)\))?:\s*(.*)$/);
+      if (match) {
+        const title = match[1].trim();
+        const statusPart = match[2] || "";
+        const finding = match[3].trim();
+        const scoreMatch = statusPart.match(/(\d+)\/10/);
+        const scoreVal = scoreMatch ? parseInt(scoreMatch[1], 10) : 4;
+        const sev = statusPart.includes("Poor") || statusPart.includes("Failing") || scoreVal <= 3 ? "Critical" : "High";
+        return {
+          title,
+          score: `${scoreVal}/10`,
+          severity: sev,
+          scoreNum: scoreVal,
+          finding,
+        };
+      }
+      return {
+        title: flag.slice(0, 35) + "...",
+        score: "3/10",
+        severity: "High",
+        scoreNum: 3,
+        finding: flag,
+      };
+    });
+
+  if (parsedFromFlags.length > 0) {
+    parsedFromFlags.sort((a, b) => a.scoreNum - b.scoreNum);
+    return parsedFromFlags.slice(0, 3);
+  }
+
+  return [];
 }
 
 interface LeadDiscoveryOutputViewerProps {
@@ -393,8 +483,10 @@ export function LeadDiscoveryOutputViewer({
         average_identifier_score: item.average_identifier_score || "4.2/10",
         primary_opportunity: primaryOpp,
         recommended_approach: recApproach,
+        why_kent_flagged: whyFlagged,
         why_kent_flagged_them: whyFlagged,
         metrics_audit: metricsAudit,
+        top_3_problems: item.top_3_problems,
         extraPoints: extra,
       };
     });
@@ -938,35 +1030,73 @@ export function LeadDiscoveryOutputViewer({
                           </div>
                         </div>
 
-                        {/* Primary Opportunity Tag */}
-                        {lead.primary_opportunity && (
-                          <div className="p-3 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/40 text-xs">
-                            <span className="font-semibold text-blue-900 dark:text-blue-200 block mb-0.5">
-                              Target Technical Opportunity:
-                            </span>
-                            <p className="text-blue-800 dark:text-blue-300">
-                              {lead.primary_opportunity}
-                            </p>
-                          </div>
-                        )}
+                        {/* Target Technical Opportunity Section with 3 Biggest Problems */}
+                        {(() => {
+                          const top3Problems = getTop3AuditProblems(lead);
+                          return (
+                            <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-50/90 via-indigo-50/40 to-slate-50 dark:from-blue-950/40 dark:via-indigo-950/20 dark:to-slate-900/40 border border-blue-200/80 dark:border-blue-900/60 text-xs space-y-2.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <span className="font-bold text-blue-950 dark:text-blue-100 flex items-center gap-1.5 text-[12px]">
+                                    <ShieldAlert className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                                    Target Technical Opportunity:
+                                  </span>
+                                  {lead.primary_opportunity && (
+                                    <p className="text-[11px] font-semibold text-blue-800 dark:text-blue-300 mt-0.5 leading-snug">
+                                      {lead.primary_opportunity}
+                                    </p>
+                                  )}
+                                </div>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 shrink-0">
+                                  3 Major Website Gaps
+                                </span>
+                              </div>
 
-                        {/* Technical Audit Points / Why Flagged */}
-                        {lead.why_kent_flagged && (
-                          <div className="space-y-1">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                              Why Kent Flagged Them:
-                            </span>
-                            <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1 pl-4 list-disc">
-                              {Array.isArray(lead.why_kent_flagged) ? (
-                                lead.why_kent_flagged.map((point, pIdx) => (
-                                  <li key={pIdx}>{point}</li>
-                                ))
-                              ) : (
-                                <li>{lead.why_kent_flagged}</li>
+                              {/* 3 Biggest Website Problems per Audit Results */}
+                              {top3Problems.length > 0 && (
+                                <div className="space-y-1.5 pt-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                    3 Biggest Problems on Website (Audit Results):
+                                  </span>
+                                  <div className="space-y-1.5">
+                                    {top3Problems.map((prob, pIdx) => {
+                                      const isCritical = prob.scoreNum <= 3 || (prob.severity && prob.severity.toLowerCase().includes("crit"));
+                                      return (
+                                        <div
+                                          key={pIdx}
+                                          className="p-2.5 rounded-lg bg-white/95 dark:bg-slate-900/90 border border-blue-100/90 dark:border-blue-900/40 shadow-xs"
+                                        >
+                                          <div className="flex items-center justify-between gap-1.5">
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                                                isCritical
+                                                  ? "bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300"
+                                                  : "bg-amber-100 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300"
+                                              }`}>
+                                                #{pIdx + 1} {prob.score ? `Score: ${prob.score}` : prob.severity || "Deficit"}
+                                              </span>
+                                              <span className="font-semibold text-slate-900 dark:text-slate-100 text-[11px] truncate">
+                                                {prob.title}
+                                              </span>
+                                            </div>
+                                            <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${
+                                              isCritical ? "text-rose-600 dark:text-rose-400" : "text-amber-600 dark:text-amber-400"
+                                            }`}>
+                                              {prob.severity || (isCritical ? "Critical" : "High")}
+                                            </span>
+                                          </div>
+                                          <p className="text-slate-600 dark:text-slate-300 text-[11px] leading-relaxed mt-1 pl-1">
+                                            {prob.finding}
+                                          </p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
                               )}
-                            </ul>
-                          </div>
-                        )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Personalized Pitch / Outreach Hook */}
                         {lead.outreach_hook && (
@@ -1125,8 +1255,23 @@ export function LeadDiscoveryOutputViewer({
                           <td className="py-3 px-4 text-center font-medium text-slate-600 dark:text-slate-400">
                             {healthNum}/100
                           </td>
-                          <td className="py-3 px-4 max-w-xs text-slate-600 dark:text-slate-400">
-                            {lead.primary_opportunity || "Website overhaul & lead funnel optimization"}
+                          <td className="py-3 px-4 max-w-sm text-slate-600 dark:text-slate-400">
+                            <span className="font-semibold text-slate-800 dark:text-slate-200 block text-xs">
+                              {lead.primary_opportunity || "Website overhaul & lead funnel optimization"}
+                            </span>
+                            {(() => {
+                              const probs = getTop3AuditProblems(lead);
+                              if (probs.length === 0) return null;
+                              return (
+                                <div className="mt-1 flex flex-wrap gap-1">
+                                  {probs.map((p, pIdx) => (
+                                    <span key={pIdx} className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300" title={p.finding}>
+                                      <span className="text-rose-500 font-bold mr-1">#{pIdx + 1}</span> {p.title}
+                                    </span>
+                                  ))}
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );

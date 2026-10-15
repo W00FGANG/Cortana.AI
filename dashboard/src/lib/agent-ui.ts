@@ -46,6 +46,15 @@ export function getAgentStyle(nameOrRole: string = ""): AgentStyle {
     };
   }
 
+  if (normalized.includes("kent") || normalized.includes("lead")) {
+    return {
+      icon: Search,
+      color: "bg-blue-50 text-blue-700",
+      borderColor: "border-blue-200",
+      accentBg: "bg-blue-600",
+    };
+  }
+
   if (normalized.includes("atlas") || normalized.includes("research") || normalized.includes("intelligence")) {
     return {
       icon: Search,

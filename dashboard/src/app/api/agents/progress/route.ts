@@ -23,12 +23,18 @@ export async function POST(request: Request) {
       slug,
     } = body;
 
-    // 1. Find the agent by ID or Name
-    const agent = await prisma.agent.findFirst({
-      where: agentId
-        ? { id: agentId }
-        : { name: { equals: agentName, mode: "insensitive" } },
-    });
+    // 1. Find the agent by Name (preferred) or ID
+    let agent = null;
+    if (agentName) {
+      agent = await prisma.agent.findFirst({
+        where: { name: { equals: agentName, mode: "insensitive" } },
+      });
+    }
+    if (!agent && agentId) {
+      agent = await prisma.agent.findUnique({
+        where: { id: agentId },
+      });
+    }
 
     if (!agent) {
       return NextResponse.json(
@@ -57,10 +63,35 @@ export async function POST(request: Request) {
       agent.role.toLowerCase().includes("outreach") ||
       agent.role.toLowerCase().includes("email");
 
+    const isKent =
+      agent.name.toLowerCase().includes("kent") ||
+      agent.role.toLowerCase().includes("lead") ||
+      Boolean(body.leads || body.metrics?.leadsCount);
+
     const isDraftingStep = step?.toLowerCase().includes("draft");
 
     let combinedOutput = output || `Step: ${step}`;
-    if (finalMarkdown || finalJson) {
+    if (isKent && (body.markdown || body.report || body.leads || body.metrics || body.recipients)) {
+      combinedOutput = JSON.stringify({
+        title: title || `Bulk Lead Discovery: ${body.industry || "Hawaii Business"} (${body.metrics?.leadsCount || (Array.isArray(body.leads) ? body.leads.length : (Array.isArray(body.recipients) ? body.recipients.length : 0))} Leads)`,
+        industry: body.industry,
+        location: body.location,
+        targeting_strategy: body.targeting_strategy || "Rank #1 Downward",
+        total_leads_found: body.metrics?.leadsCount || (Array.isArray(body.leads) ? body.leads.length : (Array.isArray(body.recipients) ? body.recipients.length : undefined)),
+        average_lead_score: body.metrics?.avgLeadScore,
+        estimated_pipeline_value: body.metrics?.pipelineValue,
+        leads: body.leads,
+        recipients: body.recipients || (Array.isArray(body.leads) ? body.leads.filter((l: any) => l.contact_email && l.contact_email.includes('@')).map((l: any) => ({
+          name: l.business || l.name,
+          email: l.contact_email,
+          urls: [l.website ? (l.website.startsWith('http') ? l.website : `https://${l.website}`) : ''],
+          extraPoints: `Market Position: ${l.ranking_status || l.search_rank}. Primary Opportunity: ${l.primary_opportunity || 'Website modernization'}. Main Audit Problems: ${l.seo_gap_summary || (Array.isArray(l.why_kent_flagged_them) ? l.why_kent_flagged_them.slice(1, 3).join(' ') : 'Identified site speed and conversion gaps')}.`
+        })) : []),
+        markdown: body.markdown || body.report,
+        file_slug: body.file_slug,
+        completedAt: new Date().toISOString(),
+      });
+    } else if (finalMarkdown || finalJson) {
       combinedOutput = JSON.stringify({
         title: title || articleJson?.title || "Article Output",
         slug: slug || articleJson?.slug || "article-output",
@@ -157,6 +188,24 @@ export async function POST(request: Request) {
         } else if (step?.toLowerCase().includes("audience") || step?.toLowerCase().includes("competitor")) {
           humanAction = "Audience & Opportunity Mapping";
           humanDesc = `Mapping high-converting audience angles and competitor gaps${topicSuffix}`;
+        }
+      }
+
+      if (isKent) {
+        if (status === "Completed") {
+          const leadCount = body.metrics?.leadsCount || (Array.isArray(body.leads) ? body.leads.length : null);
+          const score = body.metrics?.avgLeadScore;
+          humanAction = "Lead Intelligence Dossier Generated";
+          humanDesc = title || `Completed bulk technical audit and lead dossier${leadCount ? ` (${leadCount} leads, Avg Score: ${score || 'N/A'}/100)` : ''}`;
+        } else if (step?.toLowerCase().includes("signal") || step?.toLowerCase().includes("search")) {
+          humanAction = "Auditing Business Signals & Directories";
+          humanDesc = description || "Crawling local search results and directory listings from Rank #1 downward";
+        } else if (step?.toLowerCase().includes("llm") || step?.toLowerCase().includes("audit")) {
+          humanAction = "Deploying 12-LLM Technical Audits";
+          humanDesc = description || "Analyzing site speed, mobile responsiveness, accessibility, SEO, and booking funnels";
+        } else if (step?.toLowerCase().includes("score") || step?.toLowerCase().includes("aggregate")) {
+          humanAction = "Calculating Lead Scores & Pipeline Value";
+          humanDesc = description || "Aggregating audit scores, ranking opportunities, and synthesizing personalized outreach hooks";
         }
       }
 
@@ -294,6 +343,7 @@ export async function POST(request: Request) {
     }
 
     try {
+      revalidatePath(`/${agent.id}`);
       revalidatePath(`/${agent.name.toLowerCase()}`);
       revalidatePath(`/agents/${agent.id}`);
       revalidatePath(`/agents/${agent.name.toLowerCase()}`);

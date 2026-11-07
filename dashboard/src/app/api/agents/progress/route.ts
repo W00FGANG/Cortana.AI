@@ -239,7 +239,7 @@ export async function POST(request: Request) {
       : await prisma.agentRun.findFirst({
           where: {
             agentId: agent.id,
-            status: "Running",
+            status: { in: ["Running", "Needs Approval"] },
           },
           orderBy: { startedAt: "desc" },
         });
@@ -321,7 +321,14 @@ export async function POST(request: Request) {
         },
       });
 
-      // Update associated task status to Needs Approval
+      // Update associated run & task status to Needs Approval
+      if (run?.id) {
+        await prisma.agentRun.update({
+          where: { id: run.id },
+          data: { status: "Needs Approval" },
+        }).catch(() => {});
+      }
+
       if (run?.taskId || taskId) {
         await prisma.task.update({
           where: { id: (taskId || run?.taskId)! },

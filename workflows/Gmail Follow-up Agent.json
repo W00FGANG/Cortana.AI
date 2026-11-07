@@ -1,10 +1,10 @@
 {
-  "updatedAt": "2026-09-09T21:56:04.173Z",
+  "updatedAt": "2026-09-11T08:49:13.226Z",
   "createdAt": "2026-02-12T22:48:56.596Z",
   "id": "Lb8UGs6yiZ71CHvF",
   "name": "Gmail Follow-up Agent (v11 - Limit 10)",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
@@ -528,16 +528,25 @@
     "availableInMCP": false,
     "binaryMode": "separate"
   },
-  "staticData": null,
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": [
+        308
+      ],
+      "recurrenceRuleSignatures": [
+        "days:7"
+      ]
+    }
+  },
   "meta": {
     "templateCredsSetupCompleted": true
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "2688c485-fa51-47fa-b82a-cbe2c0c84f4b",
-  "activeVersionId": null,
-  "versionCounter": 39,
-  "triggerCount": 0,
+  "versionId": "b9ff0437-4a68-43dc-80da-50835d6dbd4c",
+  "activeVersionId": "b9ff0437-4a68-43dc-80da-50835d6dbd4c",
+  "versionCounter": 41,
+  "triggerCount": 2,
   "sourceWorkflowId": null,
   "tags": [],
   "activeVersion": null

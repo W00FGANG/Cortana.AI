@@ -36,6 +36,7 @@ async function AgentTaskExecutionSection({
   agentName: string;
   chatThemeCardBg: string;
 }) {
+  const activeCutoff = new Date(Date.now() - 60 * 60 * 1000);
   const [tasks, activities, runs] = await Promise.all([
     prisma.task.findMany({
       where: { agentId },
@@ -48,12 +49,21 @@ async function AgentTaskExecutionSection({
       take: 5,
     }),
     prisma.agentRun.findMany({
-      where: { agentId, status: "Running" },
-      take: 1,
+      where: { agentId },
+      orderBy: { startedAt: "desc" },
+      take: 3,
+      include: { task: { select: { status: true } } },
     }),
   ]);
 
-  const isRunning = tasks.some((t) => t.status === "Running") || runs.length > 0;
+  const isRunning =
+    tasks.some((t) => t.status === "Running" && (t.startedAt ?? t.createdAt) >= activeCutoff) ||
+    runs.some(
+      (r) =>
+        r.status === "Running" &&
+        r.startedAt >= activeCutoff &&
+        (!r.task || r.task.status === "Running")
+    );
   const currentTask = tasks.find((t) => t.status === "Running" || t.status === "Needs Approval") || tasks[0];
 
   const isEmailAgent = agentName.toLowerCase().includes("kainoa");
@@ -443,6 +453,10 @@ async function AgentRecentRunsSection({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
               {runs.map((run) => {
                 const outputSummary = formatHumanReadableRunOutput(run.output, run.error, agentName);
+                const effectiveStatus =
+                  run.status === "Running" && run.task && run.task.status !== "Running"
+                    ? run.task.status
+                    : run.status;
                 return (
                   <tr key={run.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">{formatTimeAgo(run.startedAt)}</td>
@@ -451,12 +465,13 @@ async function AgentRecentRunsSection({
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        run.status === "Completed" ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400" :
-                        run.status === "Running" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 animate-pulse" :
-                        run.status === "Stalled" ? "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-400" :
+                        effectiveStatus === "Completed" ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-400" :
+                        effectiveStatus === "Running" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 animate-pulse" :
+                        effectiveStatus === "Needs Approval" ? "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-400" :
+                        effectiveStatus === "Stalled" ? "bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-400" :
                         "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300"
                       }`}>
-                        {run.status}
+                        {effectiveStatus}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs max-w-sm truncate" title={outputSummary}>
@@ -553,18 +568,37 @@ export default async function AgentProfilePage({ params }: PageProps) {
     notFound();
   }
 
-  const [runningTask, runningRun] = await Promise.all([
-    prisma.task.findFirst({
-      where: { agentId: agent.id, status: "Running" },
-      select: { id: true },
+  const activeCutoff = new Date(Date.now() - 60 * 60 * 1000);
+  const [recentTasks, recentRuns] = await Promise.all([
+    prisma.task.findMany({
+      where: { agentId: agent.id },
+      orderBy: { createdAt: "desc" },
+      take: 3,
+      select: { id: true, status: true, startedAt: true, createdAt: true },
     }),
-    prisma.agentRun.findFirst({
-      where: { agentId: agent.id, status: "Running" },
-      select: { id: true },
+    prisma.agentRun.findMany({
+      where: { agentId: agent.id },
+      orderBy: { startedAt: "desc" },
+      take: 3,
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        task: { select: { status: true } },
+      },
     }),
   ]);
 
-  const isRunning = Boolean(runningTask || runningRun);
+  const isRunning =
+    recentTasks.some(
+      (t) => t.status === "Running" && (t.startedAt ?? t.createdAt) >= activeCutoff
+    ) ||
+    recentRuns.some(
+      (r) =>
+        r.status === "Running" &&
+        r.startedAt >= activeCutoff &&
+        (!r.task || r.task.status === "Running")
+    );
 
   const isArticleGenerator =
     agent.name.toLowerCase().includes("harper") ||

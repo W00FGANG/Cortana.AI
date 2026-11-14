@@ -126,27 +126,35 @@ export async function approveApproval(approvalId: string, formData?: FormData) {
       });
     }
 
-    if (metadata?.recipientEmail) {
+    if (metadata?.recipientEmail || approval.taskId) {
       const activeRun = await prisma.agentRun.findFirst({
-        where: {
-          agentId: approval.agentId,
-          status: "Running",
-        },
+        where: approval.taskId
+          ? { taskId: approval.taskId }
+          : {
+              agentId: approval.agentId,
+              status: { in: ["Running", "Needs Approval"] },
+            },
         orderBy: { startedAt: "desc" },
       });
       if (activeRun) {
         await prisma.agentRun.update({
           where: { id: activeRun.id },
           data: {
-            output: JSON.stringify(
-              [
-                {
-                  email: metadata.recipientEmail,
-                },
-              ],
-              null,
-              2
-            ),
+            status: metadata?.resumeUrl ? "Running" : "Completed",
+            completedAt: metadata?.resumeUrl ? null : new Date(),
+            ...(metadata?.recipientEmail
+              ? {
+                  output: JSON.stringify(
+                    [
+                      {
+                        email: metadata.recipientEmail,
+                      },
+                    ],
+                    null,
+                    2
+                  ),
+                }
+              : {}),
           },
         }).catch(() => {});
       }
@@ -167,6 +175,7 @@ export async function approveApproval(approvalId: string, formData?: FormData) {
       revalidatePath("/tasks");
       revalidatePath("/operations");
       revalidatePath("/");
+      revalidatePath(`/${approval.agent.name.toLowerCase()}`);
     } catch {}
     return { success: true };
   } catch (err: any) {
@@ -214,7 +223,7 @@ export async function rejectApproval(approvalId: string) {
       },
     });
 
-    // If there's an associated task, update it
+    // If there's an associated task/run, mark them completed
     if (approval.taskId) {
       await prisma.task.update({
         where: { id: approval.taskId },
@@ -224,6 +233,16 @@ export async function rejectApproval(approvalId: string) {
           result: `Declined by user: ${approval.title}`,
         },
       });
+      await prisma.agentRun.updateMany({
+        where: {
+          taskId: approval.taskId,
+          status: { in: ["Running", "Needs Approval"] },
+        },
+        data: {
+          status: "Completed",
+          completedAt: new Date(),
+        },
+      }).catch(() => {});
     }
 
     // Create an Activity record for audit log
@@ -241,6 +260,7 @@ export async function rejectApproval(approvalId: string) {
       revalidatePath("/tasks");
       revalidatePath("/operations");
       revalidatePath("/");
+      revalidatePath(`/${approval.agent.name.toLowerCase()}`);
     } catch {}
     return { success: true };
   } catch (err: any) {

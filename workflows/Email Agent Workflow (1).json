@@ -177,7 +177,9 @@
         "subject": "={{ $json.subject }}",
         "emailType": "text",
         "message": "={{ $json.body }}",
-        "options": {}
+        "options": {
+          "appendAttribution": false
+        }
       },
       "name": "Send Email",
       "type": "n8n-nodes-base.gmail",
@@ -214,7 +216,7 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose",
+            "typeValidation": "strict",
             "version": 2
           },
           "conditions": [
@@ -658,14 +660,13 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
     "callerPolicy": "workflowsFromSameOwner",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "binaryMode": "separate"
   },
-  "versionId": "c395fe6a-e97e-4232-ab3e-a9a0aed9521e",
+  "versionId": "c6caa163-0d4a-4e5e-b442-9970f6ad4add",
   "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "90087e003cd26582a55ba68d526b7273541408705786994dfdf60fde936b2c82"
+    "templateCredsSetupCompleted": true
   },
   "nodeGroups": [],
   "id": "Al3atlOTCSx8ZNgN",

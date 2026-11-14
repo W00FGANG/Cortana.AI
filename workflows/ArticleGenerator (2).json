@@ -2198,11 +2198,11 @@
   "active": false,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
     "availableInMCP": false,
-    "callerPolicy": "workflowsFromSameOwner"
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
   },
-  "versionId": "2db75c33-95bb-43b9-b8bf-25c7dd2c8200",
+  "versionId": "901d777c-fbc0-449f-9a4e-aad7aa800e1e",
   "meta": {
     "instanceId": "90087e003cd26582a55ba68d526b7273541408705786994dfdf60fde936b2c82"
   },

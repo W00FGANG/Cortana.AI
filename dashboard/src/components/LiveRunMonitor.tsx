@@ -14,8 +14,29 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
   const [running, setRunning] = useState(initialIsRunning);
   const [seconds, setSeconds] = useState(0);
   const [justCompleted, setJustCompleted] = useState(false);
-  const isReloadingRef = useRef(false);
-  const prevTaskIdRef = useRef<string | null>(null);
+  const prevTaskRef = useRef<{ id: string; done: boolean } | null>(null);
+  const completionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const markCompletedAndRefresh = useCallback(() => {
+    setRunning(false);
+    setJustCompleted(true);
+    router.refresh();
+
+    if (completionTimerRef.current) {
+      clearTimeout(completionTimerRef.current);
+    }
+    completionTimerRef.current = setTimeout(() => {
+      setJustCompleted(false);
+    }, 5000);
+  }, [router]);
+
+  useEffect(() => {
+    return () => {
+      if (completionTimerRef.current) {
+        clearTimeout(completionTimerRef.current);
+      }
+    };
+  }, []);
 
   // Sync state if server prop changes
   useEffect(() => {
@@ -30,10 +51,12 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
     const handleRunStarted = (e: any) => {
       const targetId = e?.detail?.agentId;
       if (!targetId || targetId === agentId) {
+        if (completionTimerRef.current) {
+          clearTimeout(completionTimerRef.current);
+        }
         setRunning(true);
         setJustCompleted(false);
         setSeconds(0);
-        isReloadingRef.current = false;
       }
     };
 
@@ -43,7 +66,6 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
 
   // Status check function
   const checkStatus = useCallback(async () => {
-    if (isReloadingRef.current) return;
     try {
       const res = await fetch(`/api/agents/${agentId}/status?t=${Date.now()}`, {
         cache: "no-store",
@@ -54,19 +76,16 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
 
       const currentRunning = Boolean(data.isRunning);
       const latestTaskId = data.latestTask?.id || null;
-      const latestTaskDone = data.latestTask?.isCompleted && data.latestTask?.hasResult;
+      const latestTaskDone = Boolean(data.latestTask?.isCompleted && data.latestTask?.hasResult);
+      const prevTask = prevTaskRef.current;
+
+      if (latestTaskId) {
+        prevTaskRef.current = { id: latestTaskId, done: latestTaskDone };
+      }
 
       // Case 1: Was running, now stopped -> WORKFLOW FINISHED!
       if (running && !currentRunning) {
-        isReloadingRef.current = true;
-        setRunning(false);
-        setJustCompleted(true);
-        router.refresh();
-
-        // Automatically reload page to display newly generated results & dossier
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
+        markCompletedAndRefresh();
         return;
       }
 
@@ -74,30 +93,22 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
       if (!running && currentRunning) {
         setRunning(true);
         setJustCompleted(false);
-      }
-
-      // Case 3: Transition in latest task status
-      if (
-        prevTaskIdRef.current &&
-        latestTaskId === prevTaskIdRef.current &&
-        latestTaskDone &&
-        running
-      ) {
-        isReloadingRef.current = true;
-        setRunning(false);
-        setJustCompleted(true);
-        router.refresh();
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
         return;
       }
 
-      if (latestTaskId) {
-        prevTaskIdRef.current = latestTaskId;
+      // Case 3: Latest task transitioned from incomplete -> completed between polls
+      if (
+        prevTask &&
+        latestTaskId === prevTask.id &&
+        !prevTask.done &&
+        latestTaskDone &&
+        running
+      ) {
+        markCompletedAndRefresh();
+        return;
       }
     } catch {}
-  }, [agentId, running, router]);
+  }, [agentId, running, markCompletedAndRefresh]);
 
   // Initial check on mount
   useEffect(() => {
@@ -140,17 +151,18 @@ export function LiveRunMonitor({ isRunning: initialIsRunning, agentId }: LiveRun
   if (justCompleted) {
     return (
       <div className="flex items-center gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-4 py-2.5 text-xs font-medium text-emerald-900 dark:text-emerald-200 shadow-sm animate-in fade-in duration-300">
-        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 animate-bounce" />
+        <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
         <div className="flex-1 flex items-center justify-between gap-3">
-          <span>Workflow finished! Updating dashboard with results...</span>
+          <span>Workflow finished! Dashboard updated with latest results.</span>
           <button
             onClick={() => {
-              window.location.reload();
+              router.refresh();
+              setJustCompleted(false);
             }}
             className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold underline hover:text-emerald-900 dark:hover:text-emerald-100 cursor-pointer"
           >
             <RefreshCw className="h-3 w-3" />
-            Update Now
+            Dismiss
           </button>
         </div>
       </div>

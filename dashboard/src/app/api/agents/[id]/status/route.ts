@@ -9,6 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const activeCutoff = new Date(Date.now() - 60 * 60 * 1000);
 
     const agent = await prisma.agent.findFirst({
       where: {
@@ -25,6 +26,8 @@ export async function GET(
             id: true,
             status: true,
             title: true,
+            createdAt: true,
+            startedAt: true,
             completedAt: true,
             result: true,
           },
@@ -35,7 +38,13 @@ export async function GET(
           select: {
             id: true,
             status: true,
+            startedAt: true,
             completedAt: true,
+            task: {
+              select: {
+                status: true,
+              },
+            },
           },
         },
       },
@@ -49,8 +58,17 @@ export async function GET(
     }
 
     const isRunning =
-      agent.tasks.some((t) => t.status === "Running") ||
-      agent.runs.some((r) => r.status === "Running");
+      agent.tasks.some(
+        (t) =>
+          t.status === "Running" &&
+          (t.startedAt ?? t.createdAt) >= activeCutoff
+      ) ||
+      agent.runs.some(
+        (r) =>
+          r.status === "Running" &&
+          r.startedAt >= activeCutoff &&
+          (!r.task || r.task.status === "Running")
+      );
 
     const latestTask = agent.tasks[0] || null;
 

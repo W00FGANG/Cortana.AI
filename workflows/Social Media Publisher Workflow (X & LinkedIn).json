@@ -5,7 +5,8 @@
     "saveExecutionProgress": true,
     "saveDataSuccessExecution": "all",
     "saveManualExecutions": true,
-    "saveDataErrorExecution": "all"
+    "saveDataErrorExecution": "all",
+    "binaryMode": "separate"
   },
   "nodes": [
     {

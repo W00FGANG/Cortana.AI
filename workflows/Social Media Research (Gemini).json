@@ -3,28 +3,33 @@
   "nodes": [
     {
       "parameters": {
+        "path": "social-media-research-gemini",
         "formTitle": "Social Media Research Generator (Gemini)",
         "formDescription": "Enter your research parameters below to generate a viral social media market research report and 3 short-form video concepts grounded in live video metrics and search trends (powered by Google Gemini).",
         "formFields": {
           "values": [
             {
               "fieldLabel": "Focus Topic",
-              "defaultValue": "Hawaii business & AI automation",
-              "requiredField": true
+              "requiredField": true,
+              "defaultValue": "Hawaii business & AI automation"
             },
             {
               "fieldLabel": "Target Audience",
+              "requiredField": false,
               "defaultValue": "Local business owners, entrepreneurs, and service professionals"
             },
             {
               "fieldLabel": "Additional Context",
               "fieldType": "textarea",
+              "requiredField": false,
               "defaultValue": "Focus on practical ROI, eliminating repetitive manual admin work, and modernizing traditional workflows"
             }
           ]
         },
+        "responseMode": "onReceived",
         "options": {
-          "buttonLabel": "Generate Research Report (Gemini)"
+          "buttonLabel": "Generate Research Report (Gemini)",
+          "formSubmittedText": "Your market research request has been submitted! The live research pipeline (YouTube Shorts & Google Search Trends) is running with Google Gemini in the background."
         }
       },
       "id": "form-trigger-sm-research",
@@ -32,7 +37,7 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
       "position": [
-        112,
+        100,
         160
       ],
       "webhookId": "social-media-research-gemini-form"
@@ -44,8 +49,8 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        112,
-        352
+        100,
+        340
       ]
     },
     {
@@ -60,8 +65,8 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        112,
-        512
+        100,
+        500
       ],
       "webhookId": "social-media-research-gemini"
     },
@@ -74,8 +79,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        352,
-        352
+        340,
+        350
       ]
     },
     {
@@ -116,7 +121,7 @@
               "id": "param-sys-prompt",
               "name": "system_prompt_research",
               "type": "string",
-              "value": "You are a practical Social Media Strategist and Short-Form Content Producer specializing in TikTok, Instagram Reels, and YouTube Shorts.\n\nYour mission is to perform market research on what social media posts are going viral across business, tech, and local markets, and deliver a clean, highly readable MARKDOWN REPORT.\n\nIMPORTANT FORMATTING RULES:\n1. Write in clean, standard ASCII Markdown.\n2. DO NOT USE EMOJIS or special decorative Unicode symbols (they cause character encoding issues and mojibake across platforms). Use standard markdown headers (#, ##, ###), bold text, and bullet points instead.\n3. Keep the writing concise, professional, and easy to read. Avoid dense walls of text.\n4. For video suggestions: DO NOT write complex second-by-second scene tables or beat sheets. Instead, keep them easy to follow with:\n   - The recommended format\n   - A general suggestion of what the video should talk about\n   - A bit of detail on a strong hook (spoken + visual)\n   - A simple call to action\n\nGROUNDED TOPICS & SIGNALS TO COVER:\n- Topics: AI, Websites, Business automation, Hawaii business, Entrepreneurship, Technology, Marketing, Local business trends.\n- Content Formats: Talking-head, Educational breakdowns, Before/after, Screen recordings, Tutorials, Case studies, Business stories, Industry commentary, Memes/trends.\n- Trend Signals: Trending topics, Popular hooks, Recurring formats, Hashtag trends, Search trends, Popular questions, Viral content patterns, Competitor gaps, Industry conversations.\n- Live Scraped Data: Reference the provided live video view counts (e.g. 1M+ views, 300K+ views) and search topics.\n\nREQUIRED REPORT OUTLINE:\n\n# Social Media Market Research & Viral Trends Report\n> Focus Topic: <Focus Topic>\n> Target Audience: <Target Audience>\n> Context: <Business Context>\n\n---\n\n## Executive Summary\nA short 2-3 paragraph overview of current viral dynamics, what content is getting traction right now, and the biggest opportunities.\n\n---\n\n## Live Market Signals & View Benchmarks\n- Notable view counts and viral benchmarks observed from scraped data.\n- What types of titles, topics, and styles are pulling hundreds of thousands or millions of views.\n- Key lessons from top-performing creators.\n\n---\n\n## Key Trends Noticed\n\n### Macro and Micro Trends\nKey shifts in AI, websites, automation, and local/Hawaii business interest.\n\n### Formats Getting High Retention\nWhich formats are currently holding attention on TikTok, Reels, and Shorts (e.g., fast screen demos, simple talking-head breakdowns, before/after transformations).\n\n### Popular Hooks and Questions\nCommon questions audience members are asking and the types of hooks stopping the scroll.\n\n### Search and Hashtags\nHigh-intent search terms and useful hashtag clusters.\n\n---\n\n## 3 Short-Form Video Suggestions\n\nProvide exactly 3 high-impact video suggestions tailored to the research. Format each cleanly as follows:\n\n### Video Suggestion 1: [Catchy Video Title]\n- Recommended Format: [e.g. Talking-head, Screen recording demo, Before/after transformation, or Quick tutorial]\n- What to Talk About: [A clear, practical summary (2-3 sentences) of what the video should cover: the core problem to address, the main value or tip to share, and why it matters to the viewer.]\n- Hook Idea and Detail:\n  - Spoken Line: \"[The exact first 3 seconds spoken phrase to grab attention]\"\n  - Visual Hook: [What to show on screen or as a bold text overlay in the first 3 seconds]\n  - Why It Works: [A quick sentence explaining why this angle captures interest]\n- Suggested Call to Action: [A simple, natural CTA, e.g., 'Comment AUTOMATE and I will send you the guide' or 'Save this for your next project']\n\n---\n\n### Video Suggestion 2: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n### Video Suggestion 3: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n## Next Steps\nBrief bulleted recommendations on shooting and publishing these concepts."
+              "value": "You are a practical Social Media Strategist and Short-Form Content Producer specializing in TikTok, Instagram Reels, and YouTube Shorts.\n\nYour mission is to perform market research on what social media posts are going viral across business, tech, and local markets, and deliver a clean, highly readable MARKDOWN REPORT.\n\nIMPORTANT FORMATTING RULES:\n1. Write in clean, standard ASCII Markdown.\n2. DO NOT USE EMOJIS or special decorative Unicode symbols (they cause character encoding issues and mojibake on Windows). Use standard markdown headers (#, ##, ###), bold text, and bullet points instead.\n3. Keep the writing concise, professional, and easy to read. Avoid dense walls of text.\n4. For video suggestions: DO NOT write complex second-by-second scene tables or beat sheets. Instead, keep them easy to follow with:\n   - The recommended format\n   - A general suggestion of what the video should talk about\n   - A bit of detail on a strong hook (spoken + visual)\n   - A simple call to action\n\nGROUNDED TOPICS & SIGNALS TO COVER:\n- Topics: AI, Websites, Business automation, Hawaii business, Entrepreneurship, Technology, Marketing, Local business trends.\n- Content Formats: Talking-head, Educational breakdowns, Before/after, Screen recordings, Tutorials, Case studies, Business stories, Industry commentary, Memes/trends.\n- Trend Signals: Trending topics, Popular hooks, Recurring formats, Hashtag trends, Search trends, Popular questions, Viral content patterns, Competitor gaps, Industry conversations.\n- Live Scraped Data: Reference the provided live video view counts (e.g. 1M+ views, 300K+ views) and search topics.\n\nREQUIRED REPORT OUTLINE:\n\n# Social Media Market Research & Viral Trends Report\n> Focus Topic: <Focus Topic>\n> Target Audience: <Target Audience>\n> Context: <Business Context>\n\n---\n\n## Executive Summary\nA short 2-3 paragraph overview of current viral dynamics, what content is getting traction right now, and the biggest opportunities.\n\n---\n\n## Live Market Signals & View Benchmarks\n- Notable view counts and viral benchmarks observed from scraped data.\n- What types of titles, topics, and styles are pulling hundreds of thousands or millions of views.\n- Key lessons from top-performing creators.\n\n---\n\n## Key Trends Noticed\n\n### Macro and Micro Trends\nKey shifts in AI, websites, automation, and local/Hawaii business interest.\n\n### Formats Getting High Retention\nWhich formats are currently holding attention on TikTok, Reels, and Shorts (e.g., fast screen demos, simple talking-head breakdowns, before/after transformations).\n\n### Popular Hooks and Questions\nCommon questions audience members are asking and the types of hooks stopping the scroll.\n\n### Search and Hashtags\nHigh-intent search terms and useful hashtag clusters.\n\n---\n\n## 3 Short-Form Video Suggestions\n\nProvide exactly 3 high-impact video suggestions tailored to the research. Format each cleanly as follows:\n\n### Video Suggestion 1: [Catchy Video Title]\n- Recommended Format: [e.g. Talking-head, Screen recording demo, Before/after transformation, or Quick tutorial]\n- What to Talk About: [A clear, practical summary (2-3 sentences) of what the video should cover: the core problem to address, the main value or tip to share, and why it matters to the viewer.]\n- Hook Idea and Detail:\n  - Spoken Line: \"[The exact first 3 seconds spoken phrase to grab attention]\"\n  - Visual Hook: [What to show on screen or as a bold text overlay in the first 3 seconds]\n  - Why It Works: [A quick sentence explaining why this angle captures interest]\n- Suggested Call to Action: [A simple, natural CTA, e.g., 'Comment AUTOMATE and I will send you the guide' or 'Save this for your next project']\n\n---\n\n### Video Suggestion 2: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n### Video Suggestion 3: [Catchy Video Title]\n- Recommended Format: [Format]\n- What to Talk About: [2-3 sentences on what to cover]\n- Hook Idea and Detail:\n  - Spoken Line: \"[Exact spoken line]\"\n  - Visual Hook: [Visual on-screen cue]\n  - Why It Works: [Why it works]\n- Suggested Call to Action: [CTA]\n\n---\n\n## Next Steps\nBrief bulleted recommendations on shooting and publishing these concepts."
             },
             {
               "id": "param-gemini-model",
@@ -133,12 +138,13 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        592,
-        352
+        580,
+        350
       ]
     },
     {
       "parameters": {
+        "method": "GET",
         "url": "={{ 'https://www.youtube.com/results?search_query=' + encodeURIComponent(($json.focus_topic || 'business automation hawaii') + ' viral shorts') }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -158,8 +164,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        832,
-        352
+        820,
+        350
       ],
       "retryOnFail": true
     },
@@ -173,11 +179,12 @@
       "typeVersion": 2,
       "position": [
         1040,
-        352
+        350
       ]
     },
     {
       "parameters": {
+        "method": "GET",
         "url": "={{ 'https://news.google.com/rss/search?q=' + encodeURIComponent(($json.focus_topic || 'hawaii business trends') + ' ai automation') + '&hl=en-US&gl=US&ceid=US:en' }}",
         "sendHeaders": true,
         "headerParameters": {
@@ -197,8 +204,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1264,
-        352
+        1260,
+        350
       ],
       "retryOnFail": true
     },
@@ -211,8 +218,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1488,
-        352
+        1480,
+        350
       ]
     },
     {
@@ -224,8 +231,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1712,
-        352
+        1700,
+        350
       ]
     },
     {
@@ -246,8 +253,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1952,
-        352
+        1940,
+        350
       ],
       "retryOnFail": true,
       "credentials": {
@@ -266,8 +273,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2192,
-        352
+        2180,
+        350
       ]
     },
     {
@@ -283,8 +290,8 @@
       "type": "n8n-nodes-base.convertToFile",
       "typeVersion": 1.1,
       "position": [
-        2432,
-        352
+        2420,
+        350
       ]
     },
     {
@@ -298,8 +305,8 @@
       "name": "Sticky Note - Overview",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        112,
-        688
+        100,
+        680
       ],
       "typeVersion": 1
     },
@@ -314,8 +321,8 @@
       "name": "Sticky Note - Parameters",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        528,
-        688
+        520,
+        680
       ],
       "typeVersion": 1
     },
@@ -330,13 +337,14 @@
       "name": "Sticky Note - Webhook & Usage",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        944,
-        688
+        940,
+        680
       ],
       "typeVersion": 1
     },
     {
       "parameters": {
+        "respondWith": "firstIncomingItem",
         "options": {}
       },
       "id": "respond-to-webhook-sm",
@@ -344,8 +352,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        2432,
-        528
+        2420,
+        520
       ]
     },
     {
@@ -364,8 +372,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2432,
-        192
+        2420,
+        180
       ]
     }
   ],
@@ -517,7 +525,6 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
     "saveDataSuccessExecution": "all",
     "saveExecutionProgress": true
   },
